@@ -322,10 +322,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/wasp/issues)
-- **Documentation**: [Wiki](https://github.com/yourusername/wasp/wiki)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/wasp/discussions)
+- **Issues**: Report bugs and feature requests through GitHub Issues
+- **Documentation**: Check the README and project structure for usage information
+- **Contributing**: See the Contributing section above for development guidelines
 
----
-
-**Note**: This tool is designed for security assessment and compliance validation. Always test in a non-production environment first and ensure you have proper authorization before scanning systems.
+For questions about CIS benchmarks and compliance standards, refer to the [Center for Internet Security](https://www.cisecurity.org/) official documentation.
