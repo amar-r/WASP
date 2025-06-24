@@ -1,4 +1,4 @@
-# WISP - Windows Server Security Scanner
+# WASP - Windows Audit & Security Profiler
 # Git ignore file for PowerShell and Python project
 
 # PowerShell
@@ -93,14 +93,11 @@ config.json
 reports/
 output/
 
-# CIS Excel files (keep only JSON)
-baselines/*.xlsx
-!baselines/cis-*.xlsx
+# Excel files (ignore all Excel files)
+*.xlsx
+*.xls
+*.csv
 
 # Logs and temp files
 *.log
-*.tmp
-
-# Ignore Excel files in baselines and everywhere
-baselines/*.xlsx
-*.xlsx 
+*.tmp 
