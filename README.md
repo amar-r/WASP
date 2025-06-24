@@ -17,6 +17,7 @@ A comprehensive PowerShell-based security scanner for Windows Server systems tha
 - **Windows Server 2016/2019/2022** (tested on Windows Server 2022)
 - **PowerShell 5.1 or later**
 - **Administrator privileges** (recommended for best results)
+- **Official CIS Excel Benchmark File** (must be downloaded separately from the Center for Internet Security)
 - **CIS Excel to JSON Converter** (included in `tools/` directory)
 
 ## 🛠️ Installation
@@ -27,13 +28,15 @@ A comprehensive PowerShell-based security scanner for Windows Server systems tha
    cd wasp
    ```
 
-2. **Verify PowerShell execution policy**:
+2. **Download the official CIS Excel benchmark file** from the [Center for Internet Security](https://www.cisecurity.org/benchmark/microsoft_windows_server) and place it in a safe location (not included in this repository).
+
+3. **Verify PowerShell execution policy**:
    ```powershell
    Get-ExecutionPolicy
    # If restricted, run: Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
    ```
 
-3. **Install Python dependencies** (for Excel to JSON conversion):
+4. **Install Python dependencies** (for Excel to JSON conversion):
    ```powershell
    python -m pip install -r requirements.txt
    ```
@@ -144,7 +147,9 @@ WASP uses JSON baselines with the following structure:
 
 ### From CIS Excel Files
 
-1. **Convert CIS Excel to JSON**:
+1. **Download the official CIS Excel benchmark file** from the [CIS website](https://www.cisecurity.org/benchmark/microsoft_windows_server) (not included in this repository).
+
+2. **Convert CIS Excel to JSON**:
    ```powershell
    python tools\cis-excel-to-json.py "path\to\cis-benchmark.xlsx" "output\baseline.json"
    ```

@@ -99,4 +99,8 @@ baselines/*.xlsx
 
 # Logs and temp files
 *.log
-*.tmp 
+*.tmp
+
+# Ignore Excel files in baselines and everywhere
+baselines/*.xlsx
+*.xlsx 

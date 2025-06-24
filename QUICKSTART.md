@@ -1,5 +1,7 @@
 # WASP Quick Start Guide
 
+> **Note:** The official CIS Excel benchmark file is a prerequisite and must be downloaded separately from the [Center for Internet Security](https://www.cisecurity.org/benchmark/microsoft_windows_server). It is not included in this repository.
+
 Get WASP (Windows Audit & Security Profiler) running in 5 minutes!
 
 ## 🚀 Quick Setup
@@ -8,12 +10,15 @@ Get WASP (Windows Audit & Security Profiler) running in 5 minutes!
 - Windows Server 2016/2019/2022
 - PowerShell 5.1 or later
 - Administrator privileges (recommended)
+- **Official CIS Excel Benchmark File** (download from CIS website)
 
 ### 2. Download & Setup
 ```powershell
 # Clone the repository
 git clone https://github.com/yourusername/wasp.git
 cd wasp
+
+# Download the official CIS Excel benchmark file from the CIS website and place it in a safe location (not included in this repository)
 
 # Install Python dependencies (for Excel conversion)
 python -m pip install -r requirements.txt
@@ -111,6 +116,8 @@ Compliance Rate: 66.67%
 
 ### From CIS Excel Files
 ```powershell
+# Download the official CIS Excel benchmark file from the CIS website (not included in this repository)
+
 # Convert CIS Excel to JSON
 python tools\cis-excel-to-json.py "CIS_Windows_Server_2022_Benchmark.xlsx" "my-baseline.json"
 
