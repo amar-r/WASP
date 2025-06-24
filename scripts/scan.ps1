@@ -366,23 +366,8 @@ function Clean-Text {
         return $Text
     }
     
-    # Use .NET methods to handle encoding more safely
-    try {
-        $bytes = [System.Text.Encoding]::UTF8.GetBytes($Text)
-        $cleanText = [System.Text.Encoding]::UTF8.GetString($bytes)
-        
-        # Simple replacements for common issues
-        $cleanText = $cleanText -replace 'â€œ', '"'
-        $cleanText = $cleanText -replace 'â€', '"'
-        $cleanText = $cleanText -replace 'â€™', "'"
-        $cleanText = $cleanText -replace 'â€¦', '...'
-        
-        return $cleanText
-    }
-    catch {
-        # If encoding fails, return original text
-        return $Text
-    }
+    # Just return the text as-is to avoid encoding issues
+    return $Text
 }
 
 # Function to filter rules by CIS level
