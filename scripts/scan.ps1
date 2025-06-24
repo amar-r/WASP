@@ -54,8 +54,20 @@ function Load-Baseline {
     param($Path)
     try {
         $baseline = Get-Content $Path -Raw | ConvertFrom-Json
-        Write-ColorOutput "Loaded baseline: $($baseline.name)" -Color Green
-        Write-ColorOutput "Total rules: $($baseline.rules.Count)" -Color Green
+        
+        # Handle different baseline structures
+        if ($baseline.metadata) {
+            # New structure with metadata
+            $baselineName = "CIS Windows Server 2022 Member Server (from metadata)"
+            $totalRules = $baseline.rules.Count
+        } else {
+            # Direct structure
+            $baselineName = $baseline.name
+            $totalRules = $baseline.rules.Count
+        }
+        
+        Write-ColorOutput "Loaded baseline: $baselineName" -Color Green
+        Write-ColorOutput "Total rules: $totalRules" -Color Green
         return $baseline
     }
     catch {
@@ -411,6 +423,26 @@ foreach ($rule in $baseline.rules) {
         }
         "audit_policy" {
             if (-not $SkipAuditPolicy) {
+                $result = Test-AuditPolicyCompliance -Rule $rule -AuditPolicyOutput $auditPolicy
+                $results += $result
+                
+                $status = if ($result.Compliant) { "PASS" } else { "FAIL" }
+                Write-ColorOutput "Rule $($rule.id): $status - $($rule.title)" -Color $(if ($result.Compliant) { "Green" } else { "Red" })
+            }
+        }
+        "secpol" {
+            if (-not $SkipSecurityPolicy) {
+                # Treat secpol as security policy checks (similar to registry but using security policy export)
+                $result = Test-RegistryCompliance -Rule $rule -PolicyContent $securityPolicy
+                $results += $result
+                
+                $status = if ($result.Compliant) { "PASS" } else { "FAIL" }
+                Write-ColorOutput "Rule $($rule.id): $status - $($rule.title)" -Color $(if ($result.Compliant) { "Green" } else { "Red" })
+            }
+        }
+        "auditpol" {
+            if (-not $SkipAuditPolicy) {
+                # Treat auditpol as audit policy checks
                 $result = Test-AuditPolicyCompliance -Rule $rule -AuditPolicyOutput $auditPolicy
                 $results += $result
                 
