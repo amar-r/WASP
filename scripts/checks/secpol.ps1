@@ -103,6 +103,59 @@ function Get-SecurityPolicySection {
     return $null
 }
 
+function Test-NumericCompliance {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$CurrentValue,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$ExpectedValue
+    )
+    
+    # Convert current value to integer for comparison
+    if (-not [int]::TryParse($CurrentValue, [ref]$null)) {
+        return $false
+    }
+    
+    $current = [int]$CurrentValue
+    
+    # Parse expected value patterns
+    switch -Regex ($ExpectedValue) {
+        "^(\d+)\s+or\s+more\s+password\(s\)$" {
+            $minValue = [int]$matches[1]
+            return $current -ge $minValue
+        }
+        "^(\d+)\s+or\s+more\s+minute\(s\)$" {
+            $minValue = [int]$matches[1]
+            return $current -ge $minValue
+        }
+        "^(\d+)\s+or\s+more\s+day\(s\)$" {
+            $minValue = [int]$matches[1]
+            return $current -ge $minValue
+        }
+        "^(\d+)\s+or\s+more\s+character\(s\)$" {
+            $minValue = [int]$matches[1]
+            return $current -ge $minValue
+        }
+        "^(\d+)\s+or\s+fewer\s+invalid\s+logon\s+attempt\(s\),\s+but\s+not\s+0$" {
+            $maxValue = [int]$matches[1]
+            return $current -le $maxValue -and $current -gt 0
+        }
+        "^(\d+)\s+or\s+fewer\s+days,\s+but\s+not\s+0$" {
+            $maxValue = [int]$matches[1]
+            return $current -le $maxValue -and $current -gt 0
+        }
+        "^(\d+)$" {
+            $exactValue = [int]$matches[1]
+            return $current -eq $exactValue
+        }
+        default {
+            # Fallback to exact string comparison for non-numeric patterns
+            return $CurrentValue -eq $ExpectedValue
+        }
+    }
+}
+
 function Test-SecurityPolicyCompliance {
     param(
         [Parameter(Mandatory = $true)]
@@ -240,8 +293,8 @@ function Test-SecurityPolicyCompliance {
                             $result.Compliant = ($currentValue -eq $expected)
                         }
                         default {
-                            # For numeric values, compare directly
-                            $result.Compliant = ($currentValue -eq $result.ExpectedValue)
+                            # For numeric values, implement intelligent validation
+                            $result.Compliant = Test-NumericCompliance -CurrentValue $currentValue -ExpectedValue $result.ExpectedValue
                         }
                     }
                 } else {
