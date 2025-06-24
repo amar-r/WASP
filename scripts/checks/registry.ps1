@@ -93,6 +93,4 @@ function Get-SecurityPolicyValue {
         return $match.Groups[1].Value.Trim('"')
     }
     return $null
-}
-
-Export-ModuleMember -Function Test-RegistryCompliance, Get-RegistryValue, Get-SecurityPolicyValue 
+} 

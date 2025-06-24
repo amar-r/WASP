@@ -132,6 +132,4 @@ function Test-AuditPolicySetting {
         CurrentSetting = $null
         ExpectedSetting = $ExpectedSetting
     }
-}
-
-Export-ModuleMember -Function Test-AuditPolicyCompliance, Get-AuditPolicySettings, Get-AuditPolicySubcategories, Parse-AuditPolicyOutput, Test-AuditPolicySetting 
+} 

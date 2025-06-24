@@ -297,6 +297,4 @@ function Get-SecurityPolicySetting {
     }
     
     return $null
-}
-
-Export-ModuleMember -Function Export-SecurityPolicy, Parse-SecurityPolicy, Get-SecurityPolicyValue, Get-SecurityPolicySection, Test-SecurityPolicyCompliance, Parse-SecurityPolicyFile, Get-SecurityPolicySetting 
+} 

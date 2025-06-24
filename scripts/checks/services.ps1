@@ -93,6 +93,4 @@ function Get-ServiceStartTypeText {
         4 { return "Disabled" }
         default { return "Unknown" }
     }
-}
-
-Export-ModuleMember -Function Test-ServiceCompliance, Get-ServiceStatus, Get-ServiceStatusText, Get-ServiceStartTypeText 
+} 
