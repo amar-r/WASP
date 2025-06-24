@@ -25,7 +25,7 @@ function Write-Section {
     param($Title)
     Write-ColorOutput "`n" -Color Cyan
     Write-ColorOutput ("=" * 80) -Color Cyan
-    Write-ColorOutput "VALIDATION: $Title" -Color Cyan
+    Write-ColorOutput "VALIDATION`: $Title" -Color Cyan
     Write-ColorOutput ("=" * 80) -Color Cyan
     Write-ColorOutput "`n" -Color Cyan
 }
@@ -43,9 +43,9 @@ function Test-Rule-1-1-3 {
     $secpol = Export-SecurityPolicy
     if ($secpol) {
         $value = Get-SecurityPolicyValue -RegistryPath "MinimumPasswordAge" -PolicyContent $secpol
-        Write-ColorOutput "  Value: $value" -Color White
+        Write-ColorOutput "  Value`: $value" -Color White
         $shouldPass = if ([int]::TryParse($value, [ref]$null)) { [int]$value -ge 1 } else { $false }
-        Write-ColorOutput "  Should Pass: $shouldPass" -Color $(if ($shouldPass) { "Green" } else { "Red" })
+        Write-ColorOutput "  Should Pass`: $shouldPass" -Color $(if ($shouldPass) { "Green" } else { "Red" })
     } else {
         Write-ColorOutput "  Failed to export security policy" -Color Red
     }
@@ -55,9 +55,9 @@ function Test-Rule-1-1-3 {
     $netOutput = net accounts 2>&1
     if ($netOutput -match "Minimum password age \(days\):\s*(\d+)") {
         $value = $matches[1]
-        Write-ColorOutput "  Value: $value" -Color White
+        Write-ColorOutput "  Value`: $value" -Color White
         $shouldPass = [int]$value -ge 1
-        Write-ColorOutput "  Should Pass: $shouldPass" -Color $(if ($shouldPass) { "Green" } else { "Red" })
+        Write-ColorOutput "  Should Pass`: $shouldPass" -Color $(if ($shouldPass) { "Green" } else { "Red" })
     } else {
         Write-ColorOutput "  Failed to get value from net accounts" -Color Red
     }
@@ -67,9 +67,9 @@ function Test-Rule-1-1-3 {
     $regValue = Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "MinimumPasswordAge" -ErrorAction SilentlyContinue
     if ($regValue) {
         $value = $regValue.MinimumPasswordAge
-        Write-ColorOutput "  Value: $value" -Color White
+        Write-ColorOutput "  Value`: $value" -Color White
         $shouldPass = [int]$value -ge 1
-        Write-ColorOutput "  Should Pass: $shouldPass" -Color $(if ($shouldPass) { "Green" } else { "Red" })
+        Write-ColorOutput "  Should Pass`: $shouldPass" -Color $(if ($shouldPass) { "Green" } else { "Red" })
     } else {
         Write-ColorOutput "  Registry value not found" -Color Red
     }
@@ -79,9 +79,9 @@ function Test-Rule-1-1-3 {
     $gpOutput = gpresult /r 2>&1
     if ($gpOutput -match "Minimum password age.*(\d+)") {
         $value = $matches[1]
-        Write-ColorOutput "  Value: $value" -Color White
+        Write-ColorOutput "  Value`: $value" -Color White
         $shouldPass = [int]$value -ge 1
-        Write-ColorOutput "  Should Pass: $shouldPass" -Color $(if ($shouldPass) { "Green" } else { "Red" })
+        Write-ColorOutput "  Should Pass`: $shouldPass" -Color $(if ($shouldPass) { "Green" } else { "Red" })
     } else {
         Write-ColorOutput "  Not found in group policy output" -Color Yellow
     }
@@ -100,9 +100,9 @@ function Test-Rule-1-2-2 {
     $secpol = Export-SecurityPolicy
     if ($secpol) {
         $value = Get-SecurityPolicyValue -RegistryPath "LockoutBadCount" -PolicyContent $secpol
-        Write-ColorOutput "  Value: $value" -Color White
+        Write-ColorOutput "  Value`: $value" -Color White
         $shouldPass = if ([int]::TryParse($value, [ref]$null)) { [int]$value -le 5 -and [int]$value -gt 0 } else { $false }
-        Write-ColorOutput "  Should Pass: $shouldPass" -Color $(if ($shouldPass) { "Green" } else { "Red" })
+        Write-ColorOutput "  Should Pass`: $shouldPass" -Color $(if ($shouldPass) { "Green" } else { "Red" })
     } else {
         Write-ColorOutput "  Failed to export security policy" -Color Red
     }
@@ -112,9 +112,9 @@ function Test-Rule-1-2-2 {
     $netOutput = net accounts 2>&1
     if ($netOutput -match "Lockout threshold:\s*(\d+)") {
         $value = $matches[1]
-        Write-ColorOutput "  Value: $value" -Color White
+        Write-ColorOutput "  Value`: $value" -Color White
         $shouldPass = [int]$value -le 5 -and [int]$value -gt 0
-        Write-ColorOutput "  Should Pass: $shouldPass" -Color $(if ($shouldPass) { "Green" } else { "Red" })
+        Write-ColorOutput "  Should Pass`: $shouldPass" -Color $(if ($shouldPass) { "Green" } else { "Red" })
     } else {
         Write-ColorOutput "  Failed to get value from net accounts" -Color Red
     }
@@ -133,9 +133,9 @@ function Test-Rule-2-3-2-1 {
     $regValue = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Name "SCENoApplyLegacyAuditPolicy" -ErrorAction SilentlyContinue
     if ($regValue) {
         $value = $regValue.SCENoApplyLegacyAuditPolicy
-        Write-ColorOutput "  Value: $value" -Color White
+        Write-ColorOutput "  Value`: $value" -Color White
         $shouldPass = $value -eq 1
-        Write-ColorOutput "  Should Pass: $shouldPass" -Color $(if ($shouldPass) { "Green" } else { "Red" })
+        Write-ColorOutput "  Should Pass`: $shouldPass" -Color $(if ($shouldPass) { "Green" } else { "Red" })
     } else {
         Write-ColorOutput "  Registry value not found" -Color Red
     }
@@ -165,9 +165,9 @@ function Test-Rule-1-1-6 {
     if ($secpol) {
         $value = Get-SecurityPolicyValue -RegistryPath "RelaxMinimumPasswordLengthLimits" -PolicyContent $secpol
         if ($value) {
-            Write-ColorOutput "  Value: $value" -Color White
+            Write-ColorOutput "  Value`: $value" -Color White
             $shouldPass = $value -eq "1"
-            Write-ColorOutput "  Should Pass: $shouldPass" -Color $(if ($shouldPass) { "Green" } else { "Red" })
+            Write-ColorOutput "  Should Pass`: $shouldPass" -Color $(if ($shouldPass) { "Green" } else { "Red" })
         } else {
             Write-ColorOutput "  Setting not found in security policy" -Color Yellow
         }
@@ -180,9 +180,9 @@ function Test-Rule-1-1-6 {
     $regValue = Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "RelaxMinimumPasswordLengthLimits" -ErrorAction SilentlyContinue
     if ($regValue) {
         $value = $regValue.RelaxMinimumPasswordLengthLimits
-        Write-ColorOutput "  Value: $value" -Color White
+        Write-ColorOutput "  Value`: $value" -Color White
         $shouldPass = $value -eq 1
-        Write-ColorOutput "  Should Pass: $shouldPass" -Color $(if ($shouldPass) { "Green" } else { "Red" })
+        Write-ColorOutput "  Should Pass`: $shouldPass" -Color $(if ($shouldPass) { "Green" } else { "Red" })
     } else {
         Write-ColorOutput "  Registry value not found" -Color Red
     }

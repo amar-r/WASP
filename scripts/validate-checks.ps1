@@ -59,7 +59,7 @@ function Compare-Values {
     $status = if ($match) { "PASS" } else { "FAIL" }
     $color = if ($match) { "Green" } else { "Red" }
     
-    Write-ColorOutput "  $TestName: $status" -Color $color
+    Write-ColorOutput "  $TestName`: $status" -Color $color
     Write-ColorOutput "    Expected: $ExpectedValue" -Color White
     Write-ColorOutput "    Actual:   $ActualValue" -Color White
     Write-ColorOutput "    Method:   $Method" -Color Gray
