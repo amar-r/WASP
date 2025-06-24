@@ -146,6 +146,7 @@ function Test-RegistryCompliance {
     }
     catch {
         $result.Details = "Error: $($_.Exception.Message)"
+        Write-ColorOutput "Warning: Error processing registry rule $($Rule.id): $($_.Exception.Message)" -Color Yellow
     }
     
     return $result
@@ -394,65 +395,81 @@ Write-Section "Processing Rules"
 $processedCount = 0
 
 foreach ($rule in $baseline.rules) {
-    if ($rule.skip -eq $true) {
-        Write-ColorOutput "Skipping rule $($rule.id) - marked as skip" -Color Yellow
-        continue
+    try {
+        if ($rule.skip -eq $true) {
+            Write-ColorOutput "Skipping rule $($rule.id) - marked as skip" -Color Yellow
+            continue
+        }
+        
+        $processedCount++
+        Write-Progress -Activity "Processing Rules" -Status "Processing rule $($rule.id)" -PercentComplete (($processedCount / $baseline.rules.Count) * 100)
+        
+        # Clean up the title to handle encoding issues
+        $cleanTitle = $rule.title
+        if ($cleanTitle) {
+            # Remove problematic Unicode characters
+            $cleanTitle = $cleanTitle -replace 'â€œ', '"' -replace 'â€', '"' -replace 'â€"', '"'
+            $cleanTitle = $cleanTitle -replace 'â€™', "'" -replace 'â€"', "'"
+            $cleanTitle = $cleanTitle -replace 'â€¦', '...'
+        }
+        
+        switch ($rule.check_type) {
+            "registry" {
+                if (-not $SkipRegistry) {
+                    $result = Test-RegistryCompliance -Rule $rule -PolicyContent $securityPolicy
+                    $results += $result
+                    
+                    $status = if ($result.Compliant) { "PASS" } else { "FAIL" }
+                    Write-ColorOutput "Rule $($rule.id): $status - $cleanTitle" -Color $(if ($result.Compliant) { "Green" } else { "Red" })
+                }
+            }
+            "service" {
+                if (-not $SkipServices) {
+                    $result = Test-ServiceCompliance -Rule $rule
+                    $results += $result
+                    
+                    $status = if ($result.Compliant) { "PASS" } else { "FAIL" }
+                    Write-ColorOutput "Rule $($rule.id): $status - $cleanTitle" -Color $(if ($result.Compliant) { "Green" } else { "Red" })
+                }
+            }
+            "audit_policy" {
+                if (-not $SkipAuditPolicy) {
+                    $result = Test-AuditPolicyCompliance -Rule $rule -AuditPolicyOutput $auditPolicy
+                    $results += $result
+                    
+                    $status = if ($result.Compliant) { "PASS" } else { "FAIL" }
+                    Write-ColorOutput "Rule $($rule.id): $status - $cleanTitle" -Color $(if ($result.Compliant) { "Green" } else { "Red" })
+                }
+            }
+            "secpol" {
+                if (-not $SkipSecurityPolicy) {
+                    # Treat secpol as security policy checks (similar to registry but using security policy export)
+                    $result = Test-RegistryCompliance -Rule $rule -PolicyContent $securityPolicy
+                    $results += $result
+                    
+                    $status = if ($result.Compliant) { "PASS" } else { "FAIL" }
+                    Write-ColorOutput "Rule $($rule.id): $status - $cleanTitle" -Color $(if ($result.Compliant) { "Green" } else { "Red" })
+                }
+            }
+            "auditpol" {
+                if (-not $SkipAuditPolicy) {
+                    # Treat auditpol as audit policy checks
+                    $result = Test-AuditPolicyCompliance -Rule $rule -AuditPolicyOutput $auditPolicy
+                    $results += $result
+                    
+                    $status = if ($result.Compliant) { "PASS" } else { "FAIL" }
+                    Write-ColorOutput "Rule $($rule.id): $status - $cleanTitle" -Color $(if ($result.Compliant) { "Green" } else { "Red" })
+                }
+            }
+            default {
+                Write-ColorOutput "Warning: Unknown check type '$($rule.check_type)' for rule $($rule.id)" -Color Yellow
+            }
+        }
     }
-    
-    $processedCount++
-    Write-Progress -Activity "Processing Rules" -Status "Processing rule $($rule.id)" -PercentComplete (($processedCount / $baseline.rules.Count) * 100)
-    
-    switch ($rule.check_type) {
-        "registry" {
-            if (-not $SkipRegistry) {
-                $result = Test-RegistryCompliance -Rule $rule -PolicyContent $securityPolicy
-                $results += $result
-                
-                $status = if ($result.Compliant) { "PASS" } else { "FAIL" }
-                Write-ColorOutput "Rule $($rule.id): $status - $($rule.title)" -Color $(if ($result.Compliant) { "Green" } else { "Red" })
-            }
-        }
-        "service" {
-            if (-not $SkipServices) {
-                $result = Test-ServiceCompliance -Rule $rule
-                $results += $result
-                
-                $status = if ($result.Compliant) { "PASS" } else { "FAIL" }
-                Write-ColorOutput "Rule $($rule.id): $status - $($rule.title)" -Color $(if ($result.Compliant) { "Green" } else { "Red" })
-            }
-        }
-        "audit_policy" {
-            if (-not $SkipAuditPolicy) {
-                $result = Test-AuditPolicyCompliance -Rule $rule -AuditPolicyOutput $auditPolicy
-                $results += $result
-                
-                $status = if ($result.Compliant) { "PASS" } else { "FAIL" }
-                Write-ColorOutput "Rule $($rule.id): $status - $($rule.title)" -Color $(if ($result.Compliant) { "Green" } else { "Red" })
-            }
-        }
-        "secpol" {
-            if (-not $SkipSecurityPolicy) {
-                # Treat secpol as security policy checks (similar to registry but using security policy export)
-                $result = Test-RegistryCompliance -Rule $rule -PolicyContent $securityPolicy
-                $results += $result
-                
-                $status = if ($result.Compliant) { "PASS" } else { "FAIL" }
-                Write-ColorOutput "Rule $($rule.id): $status - $($rule.title)" -Color $(if ($result.Compliant) { "Green" } else { "Red" })
-            }
-        }
-        "auditpol" {
-            if (-not $SkipAuditPolicy) {
-                # Treat auditpol as audit policy checks
-                $result = Test-AuditPolicyCompliance -Rule $rule -AuditPolicyOutput $auditPolicy
-                $results += $result
-                
-                $status = if ($result.Compliant) { "PASS" } else { "FAIL" }
-                Write-ColorOutput "Rule $($rule.id): $status - $($rule.title)" -Color $(if ($result.Compliant) { "Green" } else { "Red" })
-            }
-        }
-        default {
-            Write-ColorOutput "Warning: Unknown check type '$($rule.check_type)' for rule $($rule.id)" -Color Yellow
-        }
+    catch {
+        Write-ColorOutput "ERROR: Failed to process rule $($rule.id): $($_.Exception.Message)" -Color Red
+        Write-ColorOutput "Continuing with next rule..." -Color Yellow
+        continue
     }
 }
 
