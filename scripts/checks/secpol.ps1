@@ -145,6 +145,18 @@ function Test-NumericCompliance {
             $maxValue = [int]$matches[1]
             return $current -le $maxValue -and $current -gt 0
         }
+        "^(\d+)\s+or\s+fewer\s+minute\(s\)$" {
+            $maxValue = [int]$matches[1]
+            return $current -le $maxValue
+        }
+        "^(\d+)\s+or\s+fewer\s+second\(s\)$" {
+            $maxValue = [int]$matches[1]
+            return $current -le $maxValue
+        }
+        "^(\d+)\s+or\s+fewer\s+hour\(s\),\s+but\s+not\s+0$" {
+            $maxValue = [int]$matches[1]
+            return $current -le $maxValue -and $current -gt 0
+        }
         "^(\d+)$" {
             $exactValue = [int]$matches[1]
             return $current -eq $exactValue

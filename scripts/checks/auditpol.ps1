@@ -40,6 +40,7 @@ function Test-AuditPolicyCompliance {
             }
             
             if ($result.CurrentSetting -eq $null) {
+                $result.Compliant = $false
                 $result.Details = "Audit policy setting not found"
             }
         } else {
