@@ -904,7 +904,7 @@
       "check_type": "auditpol",
       "target": "Local Policies",
       "specific_setting": "Local Policies",
-      "expected_value": "Enabled",
+      "expected_value": "1",
       "skip": false,
       "rationale": "Prior to the introduction of auditing subcategories in Windows Vista, it was difficult to track events at a per-system or per-user level. The larger event categories created too many events and the key information that needed to be audited was difficult to find.",
       "impact": "None - this is the default behavior.",

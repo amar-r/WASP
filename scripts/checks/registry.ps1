@@ -1,6 +1,71 @@
 # Registry Check Module for WASP Scanner
 # Handles registry-based CIS compliance checks
 
+function Test-RegistryValueCompliance {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$CurrentValue,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$ExpectedValue
+    )
+    
+    # Convert current value to string for comparison
+    $current = $CurrentValue.ToString()
+    
+    # Handle Enabled/Disabled conversion
+    if ($ExpectedValue -eq "Enabled") {
+        return $current -eq "1"
+    }
+    if ($ExpectedValue -eq "Disabled") {
+        return $current -eq "0"
+    }
+    
+    # Handle numeric patterns
+    if ([int]::TryParse($current, [ref]$null)) {
+        $currentNum = [int]$current
+        
+        # Parse expected value patterns
+        switch -Regex ($ExpectedValue) {
+            "^(\d+)\s+or\s+more$" {
+                $minValue = [int]$matches[1]
+                return $currentNum -ge $minValue
+            }
+            "^(\d+)\s+or\s+fewer$" {
+                $maxValue = [int]$matches[1]
+                return $currentNum -le $maxValue
+            }
+            "^(\d+)\s+or\s+fewer\s+days,\s+but\s+not\s+0$" {
+                $maxValue = [int]$matches[1]
+                return $currentNum -le $maxValue -and $currentNum -gt 0
+            }
+            "^(\d+)\s+or\s+fewer\s+hours,\s+but\s+not\s+0$" {
+                $maxValue = [int]$matches[1]
+                return $currentNum -le $maxValue -and $currentNum -gt 0
+            }
+            "^(\d+)\s+or\s+fewer\s+seconds$" {
+                $maxValue = [int]$matches[1]
+                return $currentNum -le $maxValue
+            }
+            "^(\d+)\s+or\s+fewer\s+minutes$" {
+                $maxValue = [int]$matches[1]
+                return $currentNum -le $maxValue
+            }
+            "^(\d+)$" {
+                $exactValue = [int]$matches[1]
+                return $currentNum -eq $exactValue
+            }
+            default {
+                # Fallback to exact string comparison
+                return $current -eq $ExpectedValue
+            }
+        }
+    }
+    
+    # Fallback to exact string comparison for non-numeric values
+    return $current -eq $ExpectedValue
+}
+
 function Test-RegistryCompliance {
     param(
         [Parameter(Mandatory = $true)]
@@ -41,9 +106,9 @@ function Test-RegistryCompliance {
             $result.Details = "Found via direct registry query"
         }
         
-        # Check compliance
+        # Check compliance with intelligent validation
         if ($result.CurrentValue -ne $null) {
-            $result.Compliant = ($result.CurrentValue -eq $result.ExpectedValue)
+            $result.Compliant = Test-RegistryValueCompliance -CurrentValue $result.CurrentValue -ExpectedValue $result.ExpectedValue
         } else {
             $result.Details = "Registry value not found"
         }
