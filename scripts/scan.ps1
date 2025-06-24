@@ -11,9 +11,6 @@ param(
     [string]$OutputPath = ".\reports\wasp-scan-$(Get-Date -Format 'yyyy-MM-dd-HHmm').txt",
     
     [Parameter(Mandatory = $false)]
-    [switch]$Verbose,
-    
-    [Parameter(Mandatory = $false)]
     [switch]$SkipRegistry,
     
     [Parameter(Mandatory = $false)]
