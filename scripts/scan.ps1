@@ -334,6 +334,9 @@ Compliance Rate: $complianceRate%
         } elseif ($result.CheckType -eq "AuditPolicy") {
             $report += "Current Setting: $($result.CurrentSetting)`n"
             $report += "Expected Setting: $($result.ExpectedSetting)`n"
+        } elseif ($result.CheckType -eq "SecurityPolicy") {
+            $report += "Current Value: $($result.CurrentValue)`n"
+            $report += "Expected Value: $($result.ExpectedValue)`n"
         }
         
         $report += "Details: $($result.Details)`n"

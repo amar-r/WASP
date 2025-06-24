@@ -169,6 +169,33 @@ function Test-SecurityPolicyCompliance {
                         "*Change the system time*" { $settingName = "SeSystemtimePrivilege" }
                         "*Change the time zone*" { $settingName = "SeTimeZonePrivilege" }
                         "*Create a pagefile*" { $settingName = "SeCreatePagefilePrivilege" }
+                        "*Create a token object*" { $settingName = "SeCreateTokenPrivilege" }
+                        "*Create global objects*" { $settingName = "SeCreateGlobalPrivilege" }
+                        "*Create permanent shared objects*" { $settingName = "SeCreatePermanentPrivilege" }
+                        "*Create symbolic links*" { $settingName = "SeCreateSymbolicLinkPrivilege" }
+                        "*Debug programs*" { $settingName = "SeDebugPrivilege" }
+                        "*Deny access to this computer from the network*" { $settingName = "SeDenyNetworkLogonRight" }
+                        "*Deny log on as a batch job*" { $settingName = "SeDenyBatchLogonRight" }
+                        "*Deny log on as a service*" { $settingName = "SeDenyServiceLogonRight" }
+                        "*Deny log on locally*" { $settingName = "SeDenyInteractiveLogonRight" }
+                        "*Deny log on through Remote Desktop Services*" { $settingName = "SeDenyRemoteInteractiveLogonRight" }
+                        "*Enable computer and user accounts to be trusted for delegation*" { $settingName = "SeEnableDelegationPrivilege" }
+                        "*Force shutdown from a remote system*" { $settingName = "SeRemoteShutdownPrivilege" }
+                        "*Generate security audits*" { $settingName = "SeAuditPrivilege" }
+                        "*Impersonate a client after authentication*" { $settingName = "SeImpersonatePrivilege" }
+                        "*Increase scheduling priority*" { $settingName = "SeIncreaseBasePriorityPrivilege" }
+                        "*Load and unload device drivers*" { $settingName = "SeLoadDriverPrivilege" }
+                        "*Lock pages in memory*" { $settingName = "SeLockMemoryPrivilege" }
+                        "*Manage auditing and security log*" { $settingName = "SeSecurityPrivilege" }
+                        "*Modify an object label*" { $settingName = "SeRelabelPrivilege" }
+                        "*Modify firmware environment values*" { $settingName = "SeSystemEnvironmentPrivilege" }
+                        "*Perform volume maintenance tasks*" { $settingName = "SeManageVolumePrivilege" }
+                        "*Profile single process*" { $settingName = "SeProfileSingleProcessPrivilege" }
+                        "*Profile system performance*" { $settingName = "SeSystemProfilePrivilege" }
+                        "*Replace a process level token*" { $settingName = "SeAssignPrimaryTokenPrivilege" }
+                        "*Restore files and directories*" { $settingName = "SeRestorePrivilege" }
+                        "*Shut down the system*" { $settingName = "SeShutdownPrivilege" }
+                        "*Take ownership of files or other objects*" { $settingName = "SeTakeOwnershipPrivilege" }
                         default { $settingName = $Rule.specific_setting }
                     }
                 }
