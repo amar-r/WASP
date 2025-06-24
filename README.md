@@ -2,7 +2,7 @@
 
 A comprehensive PowerShell-based security scanner for Windows Server systems that validates compliance against CIS (Center for Internet Security) benchmarks.
 
-## 🚀 Features
+## Features
 
 - **CIS Compliance Scanning**: Validates Windows Server systems against CIS benchmarks
 - **Multiple Check Types**: Registry, Security Policy, Audit Policy, and Services
@@ -12,7 +12,7 @@ A comprehensive PowerShell-based security scanner for Windows Server systems tha
 - **Real-time Progress**: Shows scanning progress with detailed output
 - **Error Handling**: Robust error handling and graceful failure recovery
 
-## 📋 Requirements
+## Requirements
 
 - **Windows Server 2016/2019/2022** (tested on Windows Server 2022)
 - **PowerShell 5.1 or later**
@@ -20,7 +20,7 @@ A comprehensive PowerShell-based security scanner for Windows Server systems tha
 - **Official CIS Excel Benchmark File** (must be downloaded separately from the Center for Internet Security)
 - **CIS Excel to JSON Converter** (included in `tools/` directory)
 
-## 🛠️ Installation
+## Installation
 
 1. **Clone the repository**:
    ```powershell
@@ -41,7 +41,7 @@ A comprehensive PowerShell-based security scanner for Windows Server systems tha
    python -m pip install -r requirements.txt
    ```
 
-## 📖 Usage
+## Usage
 
 ### Basic Usage
 
@@ -89,7 +89,7 @@ Run a compliance scan using the default baseline:
 | `SkipServices` | switch | `false` | Skip service compliance checks |
 | `CISLevel` | string | `Both` | CIS level to scan: `Level1`, `Level2`, or `Both` |
 
-## 📊 Baseline Format
+## Baseline Format
 
 WASP uses JSON baselines with the following structure:
 
@@ -153,7 +153,7 @@ WASP uses JSON baselines with the following structure:
 }
 ```
 
-## 🔧 Creating Custom Baselines
+## Creating Custom Baselines
 
 ### From CIS Excel Files
 
@@ -173,7 +173,7 @@ WASP uses JSON baselines with the following structure:
 
 Create a JSON file following the baseline format above. Include only the rules you want to check.
 
-## 📈 Sample Output
+## Sample Output
 
 ```
 WASP - Windows Audit & Security Profiler
@@ -214,7 +214,7 @@ Non-Compliant: 66
 Compliance Rate: 83.82%
 ```
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 WASP/
@@ -235,7 +235,7 @@ WASP/
 └── README.md                     # This file
 ```
 
-## 🔍 Check Types
+## Check Types
 
 ### Registry Checks
 - Validates registry values against expected settings
@@ -257,14 +257,14 @@ WASP/
 - Parses hierarchical audit policy structure
 - Validates both categories and subcategories
 
-## 🛡️ Security Considerations
+## Security Considerations
 
 - **Administrator Privileges**: Some checks require elevated privileges
 - **Execution Policy**: Ensure PowerShell execution policy allows script execution
 - **Baseline Validation**: Always review baselines before use in production
 - **Network Access**: No external network access required for scanning
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -293,7 +293,7 @@ Enable verbose output for detailed debugging:
 .\scripts\scan.ps1 -Verbose
 ```
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch
@@ -310,20 +310,6 @@ cd wasp
 python -m pip install -r requirements.txt
 ```
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- **CIS (Center for Internet Security)** for the benchmark standards
-- **Microsoft** for PowerShell and Windows Server documentation
-- **Open source community** for inspiration and tools
-
-## 📞 Support
-
-- **Issues**: Report bugs and feature requests through GitHub Issues
-- **Documentation**: Check the README and project structure for usage information
-- **Contributing**: See the Contributing section above for development guidelines
-
-For questions about CIS benchmarks and compliance standards, refer to the [Center for Internet Security](https://www.cisecurity.org/) official documentation.
