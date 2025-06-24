@@ -27,6 +27,13 @@ param(
     [string]$CISLevel = "Both"
 )
 
+# Import check modules
+$scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
+Import-Module "$scriptPath\checks\secpol.ps1" -Force
+Import-Module "$scriptPath\checks\auditpol.ps1" -Force
+Import-Module "$scriptPath\checks\registry.ps1" -Force
+Import-Module "$scriptPath\checks\services.ps1" -Force
+
 # Function to write colored output
 function Write-ColorOutput {
     param($Message, $Color = "White")
@@ -272,26 +279,6 @@ function Test-AuditPolicyCompliance {
     return $result
 }
 
-# Function to export security policy
-function Export-SecurityPolicy {
-    $tempFile = [System.IO.Path]::GetTempFileName()
-    try {
-        $output = secedit /export /cfg $tempFile 2>&1
-        if (Test-Path $tempFile) {
-            $content = Get-Content $tempFile -Raw
-            Remove-Item $tempFile -Force
-            return $content
-        }
-        return $null
-    }
-    catch {
-        if (Test-Path $tempFile) {
-            Remove-Item $tempFile -Force
-        }
-        return $null
-    }
-}
-
 # Function to generate report
 function Write-Report {
     param($Results, $OutputPath)
@@ -416,7 +403,7 @@ Write-ColorOutput "Filtered rules: $($filteredRules.Count)" -Color Green
 # Initialize results array
 $results = @()
 
-# Export security policy (for registry checks)
+# Export security policy (for security policy checks)
 Write-Section "Exporting Security Policy"
 $securityPolicy = Export-SecurityPolicy
 if ($securityPolicy) {
@@ -481,20 +468,24 @@ foreach ($rule in $filteredRules) {
             }
             "secpol" {
                 if (-not $SkipSecurityPolicy) {
-                    # Treat secpol as security policy checks (similar to registry but using security policy export)
-                    $result = Test-RegistryCompliance -Rule $rule -PolicyContent $securityPolicy
+                    $result = Test-SecurityPolicyCompliance -Rule $rule -PolicyContent $securityPolicy
                     $results += $result
-                    
                     $status = if ($result.Compliant) { "PASS" } else { "FAIL" }
                     Write-ColorOutput "Rule $($rule.id): $status - $cleanTitle" -Color $(if ($result.Compliant) { "Green" } else { "Red" })
                 }
             }
             "auditpol" {
                 if (-not $SkipAuditPolicy) {
-                    # Treat auditpol as audit policy checks
                     $result = Test-AuditPolicyCompliance -Rule $rule -AuditPolicyOutput $auditPolicy
                     $results += $result
-                    
+                    $status = if ($result.Compliant) { "PASS" } else { "FAIL" }
+                    Write-ColorOutput "Rule $($rule.id): $status - $cleanTitle" -Color $(if ($result.Compliant) { "Green" } else { "Red" })
+                }
+            }
+            "security_policy" {
+                if (-not $SkipSecurityPolicy) {
+                    $result = Test-SecurityPolicyCompliance -Rule $rule -PolicyContent $securityPolicy
+                    $results += $result
                     $status = if ($result.Compliant) { "PASS" } else { "FAIL" }
                     Write-ColorOutput "Rule $($rule.id): $status - $cleanTitle" -Color $(if ($result.Compliant) { "Green" } else { "Red" })
                 }

@@ -129,14 +129,99 @@ function Test-SecurityPolicyCompliance {
         }
         
         if ($PolicyContent) {
-            $currentValue = Get-SecurityPolicyValue -RegistryPath $Rule.target -PolicyContent $PolicyContent
-            $result.CurrentValue = $currentValue
+            # Parse the policy content into sections
+            $sections = Parse-SecurityPolicy -PolicyContent $PolicyContent
             
-            if ($currentValue -ne $null) {
-                $result.Compliant = ($currentValue -eq $result.ExpectedValue)
-                $result.Details = "Value found in security policy export"
+            # Determine which section to check based on the rule target
+            $sectionToCheck = $null
+            $settingName = $null
+            
+            switch ($Rule.target) {
+                "Account Policies" {
+                    $sectionToCheck = "System Access"
+                    # Map CIS rule titles to actual setting names in security_policy.inf
+                    switch -Wildcard ($Rule.title) {
+                        "*Enforce password history*" { $settingName = "PasswordHistorySize" }
+                        "*Maximum password age*" { $settingName = "MaximumPasswordAge" }
+                        "*Minimum password age*" { $settingName = "MinimumPasswordAge" }
+                        "*Minimum password length*" { $settingName = "MinimumPasswordLength" }
+                        "*Password must meet complexity requirements*" { $settingName = "PasswordComplexity" }
+                        "*Relax minimum password length limits*" { $settingName = "RelaxMinimumPasswordLengthLimits" }
+                        "*Store passwords using reversible encryption*" { $settingName = "ClearTextPassword" }
+                        "*Account lockout duration*" { $settingName = "LockoutDuration" }
+                        "*Account lockout threshold*" { $settingName = "LockoutBadCount" }
+                        "*Allow Administrator account lockout*" { $settingName = "AllowAdministratorLockout" }
+                        "*Reset account lockout counter after*" { $settingName = "ResetLockoutCount" }
+                        default { $settingName = $Rule.specific_setting }
+                    }
+                }
+                "User Rights Assignment" {
+                    $sectionToCheck = "Privilege Rights"
+                    # Map CIS rule titles to privilege rights
+                    switch -Wildcard ($Rule.title) {
+                        "*Access Credential Manager as a trusted caller*" { $settingName = "SeTrustedCredManAccessPrivilege" }
+                        "*Access this computer from the network*" { $settingName = "SeNetworkLogonRight" }
+                        "*Act as part of the operating system*" { $settingName = "SeTcbPrivilege" }
+                        "*Adjust memory quotas for a process*" { $settingName = "SeIncreaseQuotaPrivilege" }
+                        "*Allow log on locally*" { $settingName = "SeInteractiveLogonRight" }
+                        "*Allow log on through Remote Desktop Services*" { $settingName = "SeRemoteInteractiveLogonRight" }
+                        "*Back up files and directories*" { $settingName = "SeBackupPrivilege" }
+                        "*Change the system time*" { $settingName = "SeSystemtimePrivilege" }
+                        "*Change the time zone*" { $settingName = "SeTimeZonePrivilege" }
+                        "*Create a pagefile*" { $settingName = "SeCreatePagefilePrivilege" }
+                        default { $settingName = $Rule.specific_setting }
+                    }
+                }
+                default {
+                    # Fallback to registry-style parsing for other settings
+                    $currentValue = Get-SecurityPolicyValue -RegistryPath $Rule.target -PolicyContent $PolicyContent
+                    $result.CurrentValue = $currentValue
+                    
+                    if ($currentValue -ne $null) {
+                        $result.Compliant = ($currentValue -eq $result.ExpectedValue)
+                        $result.Details = "Value found in security policy export (registry style)"
+                    } else {
+                        $result.Details = "Value not found in security policy export"
+                    }
+                    return $result
+                }
+            }
+            
+            # Check the appropriate section for the setting
+            if ($sectionToCheck -and $sections.ContainsKey($sectionToCheck) -and $settingName) {
+                $section = $sections[$sectionToCheck]
+                if ($section.ContainsKey($settingName)) {
+                    $currentValue = $section[$settingName]
+                    $result.CurrentValue = $currentValue
+                    $result.Details = "Found in $sectionToCheck section"
+                    
+                    # Handle different value formats
+                    switch ($settingName) {
+                        "PasswordComplexity" {
+                            # 1 = Enabled, 0 = Disabled
+                            $expected = if ($result.ExpectedValue -eq "Enabled") { "1" } else { "0" }
+                            $result.Compliant = ($currentValue -eq $expected)
+                        }
+                        "ClearTextPassword" {
+                            # 0 = Disabled, 1 = Enabled
+                            $expected = if ($result.ExpectedValue -eq "Disabled") { "0" } else { "1" }
+                            $result.Compliant = ($currentValue -eq $expected)
+                        }
+                        "AllowAdministratorLockout" {
+                            # 1 = Enabled, 0 = Disabled
+                            $expected = if ($result.ExpectedValue -eq "Enabled") { "1" } else { "0" }
+                            $result.Compliant = ($currentValue -eq $expected)
+                        }
+                        default {
+                            # For numeric values, compare directly
+                            $result.Compliant = ($currentValue -eq $result.ExpectedValue)
+                        }
+                    }
+                } else {
+                    $result.Details = "Setting '$settingName' not found in $sectionToCheck section"
+                }
             } else {
-                $result.Details = "Value not found in security policy export"
+                $result.Details = "Section '$sectionToCheck' not found or setting name not determined"
             }
         } else {
             $result.Details = "Failed to export security policy"
