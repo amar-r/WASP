@@ -1,0 +1,102 @@
+# WISP - Windows Server Security Scanner
+# Git ignore file for PowerShell and Python project
+
+# PowerShell
+*.ps1.log
+*.ps1.xml
+*.ps1.json
+*.ps1.txt
+*.ps1.csv
+*.ps1.html
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Reports and outputs
+reports/*.txt
+reports/*.json
+reports/*.html
+reports/*.csv
+!reports/.gitkeep
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.bak
+
+# Test files
+test-*.ps1
+test-*.py
+*test*.ps1
+*test*.py
+
+# Backup files
+*.backup
+*.old
+*.orig
+
+# Security
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets.json
+config.json
+.env
+
+# Scan output reports
+reports/
+output/
+
+# CIS Excel files (keep only JSON)
+baselines/*.xlsx
+!baselines/cis-*.xlsx
+
+# Logs and temp files
+*.log
+*.tmp 
