@@ -101,6 +101,15 @@ Compliance Rate: 66.67%
 
 # Only service checks
 .\scripts\scan.ps1 -SkipRegistry -SkipAuditPolicy -SkipSecurityPolicy
+
+# Only Level 1 CIS controls
+.\scripts\scan.ps1 -CISLevel Level1
+
+# Only Level 2 CIS controls  
+.\scripts\scan.ps1 -CISLevel Level2
+
+# Both levels (default)
+.\scripts\scan.ps1 -CISLevel Both
 ```
 
 ### Custom Output

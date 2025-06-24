@@ -63,6 +63,15 @@ Run a compliance scan using the default baseline:
 # Skip specific check types
 .\scripts\scan.ps1 -SkipRegistry -SkipServices
 
+# Scan only Level 1 CIS controls
+.\scripts\scan.ps1 -CISLevel Level1
+
+# Scan only Level 2 CIS controls
+.\scripts\scan.ps1 -CISLevel Level2
+
+# Scan both levels (default)
+.\scripts\scan.ps1 -CISLevel Both
+
 # Enable verbose output
 .\scripts\scan.ps1 -Verbose
 ```
@@ -78,6 +87,7 @@ Run a compliance scan using the default baseline:
 | `SkipSecurityPolicy` | switch | `false` | Skip security policy checks |
 | `SkipAuditPolicy` | switch | `false` | Skip audit policy checks |
 | `SkipServices` | switch | `false` | Skip service compliance checks |
+| `CISLevel` | string | `Both` | CIS level to scan: `Level1`, `Level2`, or `Both` |
 
 ## 📊 Baseline Format
 

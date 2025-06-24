@@ -20,7 +20,11 @@ param(
     [switch]$SkipAuditPolicy,
     
     [Parameter(Mandatory = $false)]
-    [switch]$SkipServices
+    [switch]$SkipServices,
+    
+    [Parameter(Mandatory = $false)]
+    [ValidateSet("Level1", "Level2", "Both")]
+    [string]$CISLevel = "Both"
 )
 
 # Function to write colored output
@@ -354,6 +358,56 @@ Compliance Rate: $complianceRate%
     Write-ColorOutput "Report saved to: $OutputPath" -Color Green
 }
 
+# Function to clean up text encoding issues
+function Clean-Text {
+    param([string]$Text)
+    
+    if ([string]::IsNullOrEmpty($Text)) {
+        return $Text
+    }
+    
+    # Use .NET methods to handle encoding more safely
+    try {
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($Text)
+        $cleanText = [System.Text.Encoding]::UTF8.GetString($bytes)
+        
+        # Simple replacements for common issues
+        $cleanText = $cleanText -replace 'â€œ', '"'
+        $cleanText = $cleanText -replace 'â€', '"'
+        $cleanText = $cleanText -replace 'â€™', "'"
+        $cleanText = $cleanText -replace 'â€¦', '...'
+        
+        return $cleanText
+    }
+    catch {
+        # If encoding fails, return original text
+        return $Text
+    }
+}
+
+# Function to filter rules by CIS level
+function Filter-RulesByLevel {
+    param(
+        [array]$Rules,
+        [string]$Level
+    )
+    
+    switch ($Level) {
+        "Level1" {
+            return $Rules | Where-Object { $_.level -eq "Level 1" }
+        }
+        "Level2" {
+            return $Rules | Where-Object { $_.level -eq "Level 2" }
+        }
+        "Both" {
+            return $Rules
+        }
+        default {
+            return $Rules
+        }
+    }
+}
+
 # Main execution
 Write-ColorOutput "WASP - Windows Audit & Security Profiler" -Color Cyan
 Write-ColorOutput "CIS Compliance Scanner for Windows Server Systems" -Color Cyan
@@ -368,6 +422,11 @@ if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
 Write-Section "Loading Baseline"
 Test-BaselineFile -Path $BaselinePath
 $baseline = Load-Baseline -Path $BaselinePath
+
+# Filter rules by CIS level
+$filteredRules = Filter-RulesByLevel -Rules $baseline.rules -Level $CISLevel
+Write-ColorOutput "CIS Level Filter: $CISLevel" -Color Cyan
+Write-ColorOutput "Filtered rules: $($filteredRules.Count)" -Color Green
 
 # Initialize results array
 $results = @()
@@ -394,7 +453,7 @@ if ($auditPolicy) {
 Write-Section "Processing Rules"
 $processedCount = 0
 
-foreach ($rule in $baseline.rules) {
+foreach ($rule in $filteredRules) {
     try {
         if ($rule.skip -eq $true) {
             Write-ColorOutput "Skipping rule $($rule.id) - marked as skip" -Color Yellow
@@ -402,16 +461,10 @@ foreach ($rule in $baseline.rules) {
         }
         
         $processedCount++
-        Write-Progress -Activity "Processing Rules" -Status "Processing rule $($rule.id)" -PercentComplete (($processedCount / $baseline.rules.Count) * 100)
+        Write-Progress -Activity "Processing Rules" -Status "Processing rule $($rule.id)" -PercentComplete (($processedCount / $filteredRules.Count) * 100)
         
         # Clean up the title to handle encoding issues
-        $cleanTitle = $rule.title
-        if ($cleanTitle) {
-            # Remove problematic Unicode characters
-            $cleanTitle = $cleanTitle -replace 'â€œ', '"' -replace 'â€', '"' -replace 'â€"', '"'
-            $cleanTitle = $cleanTitle -replace 'â€™', "'" -replace 'â€"', "'"
-            $cleanTitle = $cleanTitle -replace 'â€¦', '...'
-        }
+        $cleanTitle = Clean-Text -Text $rule.title
         
         switch ($rule.check_type) {
             "registry" {
@@ -485,6 +538,7 @@ $totalCount = $results.Count
 $complianceRate = if ($totalCount -gt 0) { [math]::Round(($compliantCount / $totalCount) * 100, 2) } else { 0 }
 
 Write-ColorOutput "`nSCAN COMPLETED" -Color Cyan
+Write-ColorOutput "CIS Level: $CISLevel" -Color White
 Write-ColorOutput "Total Rules Processed: $totalCount" -Color White
 Write-ColorOutput "Compliant: $compliantCount" -Color Green
 Write-ColorOutput "Non-Compliant: $($totalCount - $compliantCount)" -Color Red
