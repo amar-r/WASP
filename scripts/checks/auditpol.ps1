@@ -7,7 +7,7 @@ function Test-AuditPolicyCompliance {
         [object]$Rule,
         
         [Parameter(Mandatory = $false)]
-        [string]$AuditPolicyOutput
+        [string[]]$AuditPolicyOutput
     )
     
     $result = @{
@@ -23,8 +23,13 @@ function Test-AuditPolicyCompliance {
     
     try {
         if ($AuditPolicyOutput) {
-            # Parse audit policy output to find the specific setting
-            $lines = $AuditPolicyOutput -split "`n"
+            # Convert string array to lines for processing
+            $lines = if ($AuditPolicyOutput -is [string]) {
+                $AuditPolicyOutput -split "`n"
+            } else {
+                $AuditPolicyOutput
+            }
+            
             foreach ($line in $lines) {
                 # Look for the specific audit category and subcategory
                 if ($line -match $Rule.audit_category -and $line -match $Rule.audit_subcategory) {
