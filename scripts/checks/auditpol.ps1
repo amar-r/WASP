@@ -22,29 +22,63 @@ function Test-AuditPolicyCompliance {
     }
     
     try {
-        # Use the audit_procedure field if available, otherwise extract from audit_command
-        $auditCommand = ""
-        if ($Rule.audit_procedure -and $Rule.audit_procedure.Trim() -ne "") {
-            # Extract command from audit_procedure if it contains code blocks
-            if ($Rule.audit_procedure -match "```\s*\n(.*?)\n\s*```") {
-                $auditCommand = $matches[1].Trim()
+        # Determine the audit policy category and subcategory from the rule
+        $auditCategory = ""
+        $auditSubcategory = ""
+        
+        # Extract audit policy information from the rule title and target
+        if ($Rule.title -match "Account lockout threshold") {
+            $auditCategory = "Account Logon"
+            $auditSubcategory = "Credential Validation"
+        } elseif ($Rule.title -match "Audit") {
+            # For audit policy rules, extract the specific audit category from the title
+            if ($Rule.title -match "Audit account logon events") {
+                $auditCategory = "Account Logon"
+                $auditSubcategory = "Credential Validation"
+            } elseif ($Rule.title -match "Audit account management") {
+                $auditCategory = "Account Management"
+                $auditSubcategory = "User Account Management"
+            } elseif ($Rule.title -match "Audit directory service access") {
+                $auditCategory = "DS Access"
+                $auditSubcategory = "Directory Service Access"
+            } elseif ($Rule.title -match "Audit logon events") {
+                $auditCategory = "Logon/Logoff"
+                $auditSubcategory = "Logon"
+            } elseif ($Rule.title -match "Audit object access") {
+                $auditCategory = "Object Access"
+                $auditSubcategory = "File System"
+            } elseif ($Rule.title -match "Audit policy change") {
+                $auditCategory = "Policy Change"
+                $auditSubcategory = "Audit Policy Change"
+            } elseif ($Rule.title -match "Audit privilege use") {
+                $auditCategory = "Privilege Use"
+                $auditSubcategory = "Sensitive Privilege Use"
+            } elseif ($Rule.title -match "Audit process tracking") {
+                $auditCategory = "Detailed Tracking"
+                $auditSubcategory = "Process Creation"
+            } elseif ($Rule.title -match "Audit system events") {
+                $auditCategory = "System"
+                $auditSubcategory = "System Integrity"
             } else {
-                # Use the audit_procedure as-is if no code blocks
-                $auditCommand = $Rule.audit_procedure.Trim()
+                # Default fallback
+                $auditCategory = "Account Logon"
+                $auditSubcategory = "Credential Validation"
             }
-        } elseif ($Rule.audit_command) {
-            $auditCommand = $Rule.audit_command
+        } else {
+            # For non-audit specific rules, try to determine from target
+            if ($Rule.target -eq "Audit Policy") {
+                $auditCategory = "Account Logon"
+                $auditSubcategory = "Credential Validation"
+            } else {
+                $result.Details = "Could not determine audit policy category from rule"
+                $result.Error = "No audit procedure or identifiable audit category found in rule"
+                return $result
+            }
         }
         
-        if ($auditCommand -eq "") {
-            $result.Details = "Could not extract audit command from rule"
-            $result.Error = "No audit procedure or command found in rule"
-            return $result
-        }
-        
-        # Execute the specific auditpol command
+        # Execute auditpol command to get current settings
         try {
-            $output = Invoke-Expression $auditCommand 2>&1
+            $output = auditpol /get /subcategory:"$auditSubcategory" 2>&1
             $outputLines = if ($output -is [string]) {
                 $output -split "`n"
             } else {

@@ -87,8 +87,25 @@ function Test-RegistryCompliance {
     }
     
     try {
-        $registryPath = $Rule.target
-        $registryName = $Rule.registry_name
+        # Extract registry path and name from audit_procedure field
+        $registryPath = $null
+        $registryName = $null
+        
+        if ($Rule.audit_procedure -and $Rule.audit_procedure.Trim() -ne "") {
+            # Parse registry path from audit_procedure (e.g., "HKLM\\System\\CurrentControlSet\\Control\\SAM:RelaxMinimumPasswordLengthLimits")
+            if ($Rule.audit_procedure -match "^([^:]+):(.+)$") {
+                $registryPath = $matches[1].Replace("\\", "\")
+                $registryName = $matches[2]
+            }
+        }
+        
+        # If not found in audit_procedure, try to extract from target field
+        if (-not $registryPath -or -not $registryName) {
+            if ($Rule.target -and $Rule.target -match "^([^:]+):(.+)$") {
+                $registryPath = $matches[1].Replace("\\", "\")
+                $registryName = $matches[2]
+            }
+        }
         
         # Validate required fields
         if (-not $registryPath -or -not $registryName) {

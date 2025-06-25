@@ -257,9 +257,9 @@ def create_baseline(rules: List[Dict[str, Any]], file_path: str) -> Dict[str, An
     
     baseline = {
         'metadata': {
-            'source_file': file_path,
+        'source_file': file_path,
             'sheets_processed': ['Level 1 - Member Server', 'Level 2 - Member Server'],
-            'total_rules': len(rules),
+        'total_rules': len(rules),
             'level_1_rules': level_1_rules,
             'level_2_rules': level_2_rules,
             'generated_at': datetime.now().isoformat()

@@ -137,8 +137,9 @@ Compliance Rate: $complianceRate%
         } elseif ($result.CheckType -eq "Service") {
             $report += "Current Status: $($result.CurrentStatus)`n"
             $report += "Current Start Type: $($result.CurrentStartType)`n"
-            $report += "Expected Status: $($result.ExpectedStatus)`n"
-            $report += "Expected Start Type: $($result.ExpectedStartType)`n"
+            if ($result.ExpectedStartType) {
+                $report += "Expected Start Type: $($result.ExpectedStartType)`n"
+            }
         } elseif ($result.CheckType -eq "AuditPolicy") {
             $report += "Current Setting: $($result.CurrentSetting)`n"
             $report += "Expected Setting: $($result.ExpectedSetting)`n"

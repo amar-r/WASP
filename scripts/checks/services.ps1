@@ -14,26 +14,42 @@ function Test-ServiceCompliance {
         Compliant = $false
         CurrentStatus = $null
         CurrentStartType = $null
-        ExpectedStatus = $Rule.expected_status
-        ExpectedStartType = $Rule.expected_start_type
+        ExpectedStartType = $null
         Details = ""
         Error = $null
     }
     
     try {
-        # Extract service name from audit_procedure field
+        # Extract service name from various possible sources
         $serviceName = $null
+        
+        # First try to extract from audit_procedure if it contains a registry path
         if ($Rule.audit_procedure -and $Rule.audit_procedure.Trim() -ne "") {
-            # Look for service name in audit_procedure (e.g., "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Spooler:Start")
             if ($Rule.audit_procedure -match "Services\\(\w+):") {
+                $serviceName = $matches[1]
+            }
+        }
+        
+        # If not found in audit_procedure, try to extract from title
+        if (-not $serviceName) {
+            if ($Rule.title -match "(\w+) service") {
+                $serviceName = $matches[1]
+            } elseif ($Rule.title -match "Ensure '(\w+)' is") {
+                $serviceName = $matches[1]
+            }
+        }
+        
+        # If still not found, try to extract from target field
+        if (-not $serviceName -and $Rule.target) {
+            if ($Rule.target -match "(\w+) service") {
                 $serviceName = $matches[1]
             }
         }
         
         # Validate required fields
         if (-not $serviceName) {
-            $result.Error = "Could not extract service name from audit_procedure"
-            $result.Details = "Service name not found in audit_procedure: $($Rule.audit_procedure)"
+            $result.Error = "Could not extract service name from rule"
+            $result.Details = "Service name not found in rule title, target, or audit_procedure"
             return $result
         }
         
