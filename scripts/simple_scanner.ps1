@@ -26,6 +26,10 @@ Write-Host "Getting system data..." -ForegroundColor Yellow
 $secpol = secedit /export /cfg "reports\secpol.inf" 2>$null
 $auditpol = auditpol /get /category:* 2>$null
 
+# Debug: Show first few lines of secpol
+Write-Host "First 10 lines of secpol.inf:"
+Get-Content "reports\secpol.inf" | Select-Object -First 10
+
 function Test-Compliance {
     param($current, $expected)
     
@@ -75,13 +79,29 @@ foreach ($rule in $rules) {
             $location = "Security Policy"
             if ($secpol -eq 0) {
                 $secpolContent = Get-Content "reports\secpol.inf" -Raw -ErrorAction SilentlyContinue
+                
+                # Try multiple patterns to extract setting name
+                $setting = ""
                 if ($rule.title -match "Ensure '([^']+)'") {
                     $setting = $matches[1]
+                } elseif ($rule.title -match "Ensure ([^']+) is") {
+                    $setting = $matches[1]
+                }
+                
+                if ($setting) {
+                    # Try exact match first
                     if ($secpolContent -match "$setting\s*=\s*(.+)") {
                         $current = $matches[1].Trim()
-                        if (Test-Compliance -current $current -expected $rule.expected_value) {
-                            $status = "PASS"
+                    } else {
+                        # Try without quotes
+                        $settingClean = $setting -replace "'", ""
+                        if ($secpolContent -match "$settingClean\s*=\s*(.+)") {
+                            $current = $matches[1].Trim()
                         }
+                    }
+                    
+                    if ($current -and (Test-Compliance -current $current -expected $rule.expected_value)) {
+                        $status = "PASS"
                     }
                 }
             }
