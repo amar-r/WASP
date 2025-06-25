@@ -39,11 +39,29 @@ $osName = "$($osInfo.Caption) $($osInfo.OSArchitecture)"
 
 # Export security policy for secpol checks
 Write-Host "Exporting security policy..." -ForegroundColor Yellow
-$secpolFile = [System.IO.Path]::GetTempPath() + "\secpol_export.inf"
+$secpolFile = "reports\secpol_export.inf"
 try {
-    secedit /export /cfg $secpolFile | Out-Null
-    $secpolContent = Get-Content $secpolFile -Raw
-    Write-Host "Security policy exported successfully" -ForegroundColor Green
+    # Run secedit export and capture output
+    $seceditResult = secedit /export /cfg $secpolFile 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        if (Test-Path $secpolFile) {
+            $secpolContent = Get-Content $secpolFile -Raw -ErrorAction SilentlyContinue
+            if ($secpolContent) {
+                Write-Host "Security policy exported successfully to $secpolFile" -ForegroundColor Green
+                Write-Host "File size: $((Get-Item $secpolFile).Length) bytes" -ForegroundColor Cyan
+            } else {
+                Write-Warning "Security policy file is empty"
+                $secpolContent = ""
+            }
+        } else {
+            Write-Warning "Security policy file was not created"
+            $secpolContent = ""
+        }
+    } else {
+        Write-Warning "secedit export failed with exit code $LASTEXITCODE"
+        Write-Warning "Output: $seceditResult"
+        $secpolContent = ""
+    }
 } catch {
     Write-Warning "Failed to export security policy: $_"
     $secpolContent = ""
@@ -52,8 +70,13 @@ try {
 # Get audit policy for auditpol checks
 Write-Host "Getting audit policy..." -ForegroundColor Yellow
 try {
-    $auditpolOutput = auditpol /get /category:* | Out-String
-    Write-Host "Audit policy retrieved successfully" -ForegroundColor Green
+    $auditpolOutput = auditpol /get /category:* 2>&1 | Out-String
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Audit policy retrieved successfully" -ForegroundColor Green
+    } else {
+        Write-Warning "auditpol failed with exit code $LASTEXITCODE"
+        $auditpolOutput = ""
+    }
 } catch {
     Write-Warning "Failed to get audit policy: $_"
     $auditpolOutput = ""
@@ -67,17 +90,41 @@ function Test-SecurityPolicy {
     $status = "FAIL"
     $details = "Setting not found in security policy"
     
+    if (-not $secpolContent) {
+        $details = "Security policy export failed or is empty"
+        return @{
+            CurrentValue = $currentValue
+            Status = $status
+            Details = $details
+        }
+    }
+    
     # Extract setting name from title (simple approach)
     $title = $rule.title
     if ($title -match "Ensure '([^']+)'") {
         $settingName = $matches[1]
         
-        # Look for the setting in secpol content
-        if ($secpolContent -and $secpolContent -match "(?s)$settingName\s*=\s*(.+)") {
-            $currentValue = $matches[1].Trim()
-            $status = "PASS"
-            $details = "Found in security policy"
+        # Look for the setting in secpol content - try multiple patterns
+        $patterns = @(
+            "(?s)$settingName\s*=\s*(.+)",
+            "(?s)$settingName\s*=\s*(.+?)(?:\r?\n|$)",
+            "(?s)$settingName\s*=\s*(.+?)(?:\r?\n\s*\r?\n|$)"
+        )
+        
+        foreach ($pattern in $patterns) {
+            if ($secpolContent -match $pattern) {
+                $currentValue = $matches[1].Trim()
+                $status = "PASS"
+                $details = "Found in security policy"
+                break
+            }
         }
+        
+        if ($status -eq "FAIL") {
+            $details = "Setting '$settingName' not found in security policy export"
+        }
+    } else {
+        $details = "Could not extract setting name from title: $title"
     }
     
     return @{
@@ -106,12 +153,14 @@ function Test-Registry {
                 $currentValue = $regValue.$regName
                 $status = "PASS"
                 $details = "Registry value found"
+            } else {
+                $details = "Registry value not found at $regPath\$regName"
             }
         } catch {
-            $details = "Registry value not accessible or does not exist"
+            $details = "Registry value not accessible or does not exist: $regPath\$regName"
         }
     } else {
-        $details = "Missing required registry path or name"
+        $details = "Missing required registry path or name in audit_procedure: $($rule.audit_procedure)"
     }
     
     return @{
@@ -129,17 +178,41 @@ function Test-AuditPolicy {
     $status = "FAIL"
     $details = "Audit policy setting not found"
     
+    if (-not $auditpolOutput) {
+        $details = "Audit policy export failed or is empty"
+        return @{
+            CurrentValue = $currentValue
+            Status = $status
+            Details = $details
+        }
+    }
+    
     # Extract setting name from title (simple approach)
     $title = $rule.title
     if ($title -match "Ensure '([^']+)'") {
         $settingName = $matches[1]
         
-        # Look for the setting in auditpol output
-        if ($auditpolOutput -and $auditpolOutput -match "(?s)$settingName\s+(.+)") {
-            $currentValue = $matches[1].Trim()
-            $status = "PASS"
-            $details = "Found in audit policy"
+        # Look for the setting in auditpol output - try multiple patterns
+        $patterns = @(
+            "(?s)$settingName\s+(.+)",
+            "(?s)$settingName\s+(.+?)(?:\r?\n|$)",
+            "(?s)$settingName\s+(.+?)(?:\r?\n\s*\r?\n|$)"
+        )
+        
+        foreach ($pattern in $patterns) {
+            if ($auditpolOutput -match $pattern) {
+                $currentValue = $matches[1].Trim()
+                $status = "PASS"
+                $details = "Found in audit policy"
+                break
+            }
         }
+        
+        if ($status -eq "FAIL") {
+            $details = "Setting '$settingName' not found in audit policy output"
+        }
+    } else {
+        $details = "Could not extract setting name from title: $title"
     }
     
     return @{
@@ -254,10 +327,8 @@ $($(if($result.Error){"Error: $($result.Error)"}else{""}))
 # Write report to file
 $report | Out-File -FilePath $OutputPath -Encoding UTF8
 
-# Clean up temporary files
-if (Test-Path $secpolFile) {
-    Remove-Item $secpolFile -Force
-}
+# Keep the secpol file for debugging (don't delete it)
+Write-Host "Security policy export saved to: $secpolFile" -ForegroundColor Cyan
 
 # Display summary
 Write-Host "`nScan Complete!" -ForegroundColor Green
