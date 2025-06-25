@@ -222,63 +222,6 @@ function Test-ServiceCompliance {
     return $result
 }
 
-# Function to get audit policy settings
-function Get-AuditPolicySettings {
-    try {
-        $output = auditpol /get /category:* 2>&1
-        return $output
-    }
-    catch {
-        return $null
-    }
-}
-
-# Function to check audit policy compliance
-function Test-AuditPolicyCompliance {
-    param($Rule, $AuditPolicyOutput)
-    
-    $result = @{
-        RuleId = $Rule.id
-        Title = $Rule.title
-        CheckType = "AuditPolicy"
-        Compliant = $false
-        CurrentSetting = $null
-        ExpectedSetting = $Rule.expected_setting
-        Details = ""
-    }
-    
-    try {
-        if ($AuditPolicyOutput) {
-            # Parse audit policy output to find the specific setting
-            $lines = $AuditPolicyOutput -split "`n"
-            foreach ($line in $lines) {
-                if ($line -match $Rule.audit_category -and $line -match $Rule.audit_subcategory) {
-                    if ($line -match $result.ExpectedSetting) {
-                        $result.Compliant = $true
-                        $result.CurrentSetting = $result.ExpectedSetting
-                        $result.Details = "Audit policy setting matches expected value"
-                    } else {
-                        $result.CurrentSetting = $line.Trim()
-                        $result.Details = "Audit policy setting does not match expected value"
-                    }
-                    break
-                }
-            }
-            
-            if ($result.CurrentSetting -eq $null) {
-                $result.Details = "Audit policy setting not found"
-            }
-        } else {
-            $result.Details = "Failed to retrieve audit policy settings"
-        }
-    }
-    catch {
-        $result.Details = "Error: $($_.Exception.Message)"
-    }
-    
-    return $result
-}
-
 # Function to generate report
 function Write-Report {
     param($Results, $OutputPath)

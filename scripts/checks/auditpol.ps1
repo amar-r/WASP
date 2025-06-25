@@ -16,7 +16,7 @@ function Test-AuditPolicyCompliance {
         CheckType = "AuditPolicy"
         Compliant = $false
         CurrentSetting = $null
-        ExpectedSetting = $Rule.expected_setting
+        ExpectedSetting = $Rule.expected_value
         Details = ""
         Error = $null
     }
@@ -26,14 +26,23 @@ function Test-AuditPolicyCompliance {
             # Parse audit policy output to find the specific setting
             $lines = $AuditPolicyOutput -split "`n"
             foreach ($line in $lines) {
+                # Look for the specific audit category and subcategory
                 if ($line -match $Rule.audit_category -and $line -match $Rule.audit_subcategory) {
-                    if ($line -match $result.ExpectedSetting) {
-                        $result.Compliant = $true
-                        $result.CurrentSetting = $result.ExpectedSetting
-                        $result.Details = "Audit policy setting matches expected value"
+                    # Extract the actual setting from the line
+                    if ($line -match "(Success|Failure|Success and Failure|No Auditing)") {
+                        $currentSetting = $matches[1]
+                        $result.CurrentSetting = $currentSetting
+                        
+                        # Compare with expected value
+                        if ($currentSetting -eq $result.ExpectedSetting) {
+                            $result.Compliant = $true
+                            $result.Details = "Audit policy setting matches expected value"
+                        } else {
+                            $result.Details = "Audit policy setting does not match expected value"
+                        }
                     } else {
                         $result.CurrentSetting = $line.Trim()
-                        $result.Details = "Audit policy setting does not match expected value"
+                        $result.Details = "Could not parse audit policy setting from line"
                     }
                     break
                 }
