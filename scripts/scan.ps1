@@ -87,141 +87,6 @@ function Load-Baseline {
     }
 }
 
-# Function to get registry value using JSON output
-function Get-RegistryValue {
-    param($Path, $Name)
-    try {
-        $result = Get-ItemProperty -Path $Path -Name $Name -ErrorAction SilentlyContinue | ConvertTo-Json -Compress
-        if ($result -eq "{}" -or $result -eq "") {
-            return $null
-        }
-        $json = $result | ConvertFrom-Json
-        return $json.$Name
-    }
-    catch {
-        return $null
-    }
-}
-
-# Function to get registry value from security policy export
-function Get-SecurityPolicyValue {
-    param($RegistryPath, $PolicyContent)
-    $pattern = [regex]::Escape($RegistryPath) + "=\d+,(.+)"
-    $match = [regex]::Match($PolicyContent, $pattern)
-    if ($match.Success) {
-        return $match.Groups[1].Value.Trim('"')
-    }
-    return $null
-}
-
-# Function to check registry compliance
-function Test-RegistryCompliance {
-    param($Rule, $PolicyContent)
-    
-    $result = @{
-        RuleId = $Rule.id
-        Title = $Rule.title
-        CheckType = "Registry"
-        Compliant = $false
-        CurrentValue = $null
-        ExpectedValue = $Rule.expected_value
-        Details = ""
-    }
-    
-    try {
-        $registryPath = $Rule.target
-        $registryName = $Rule.registry_name
-        
-        # Try security policy first (more reliable)
-        if ($PolicyContent) {
-            $currentValue = Get-SecurityPolicyValue -RegistryPath $registryPath -PolicyContent $PolicyContent
-            if ($currentValue -ne $null) {
-                $result.CurrentValue = $currentValue
-                $result.Details = "Found in security policy export"
-            }
-        }
-        
-        # Fallback to direct registry query
-        if ($result.CurrentValue -eq $null) {
-            $currentValue = Get-RegistryValue -Path $registryPath -Name $registryName
-            $result.CurrentValue = $currentValue
-            $result.Details = "Found via direct registry query"
-        }
-        
-        # Check compliance
-        if ($result.CurrentValue -ne $null) {
-            $result.Compliant = ($result.CurrentValue -eq $result.ExpectedValue)
-        } else {
-            $result.Details = "Registry value not found"
-        }
-    }
-    catch {
-        $result.Details = "Error: $($_.Exception.Message)"
-        Write-ColorOutput "Warning: Error processing registry rule $($Rule.id): $($_.Exception.Message)" -Color Yellow
-    }
-    
-    return $result
-}
-
-# Function to get service status using JSON output
-function Get-ServiceStatus {
-    param($ServiceName)
-    try {
-        $result = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue | Select-Object Name, Status, StartType | ConvertTo-Json -Compress
-        if ($result -eq "{}" -or $result -eq "") {
-            return $null
-        }
-        $json = $result | ConvertFrom-Json
-        return @{
-            Name = $json.Name
-            Status = $json.Status
-            StartType = $json.StartType
-        }
-    }
-    catch {
-        return $null
-    }
-}
-
-# Function to check service compliance
-function Test-ServiceCompliance {
-    param($Rule)
-    
-    $result = @{
-        RuleId = $Rule.id
-        Title = $Rule.title
-        CheckType = "Service"
-        Compliant = $false
-        CurrentStatus = $null
-        CurrentStartType = $null
-        ExpectedStatus = $Rule.expected_status
-        ExpectedStartType = $Rule.expected_start_type
-        Details = ""
-    }
-    
-    try {
-        $serviceInfo = Get-ServiceStatus -ServiceName $Rule.service_name
-        if ($serviceInfo) {
-            $result.CurrentStatus = $serviceInfo.Status
-            $result.CurrentStartType = $serviceInfo.StartType
-            
-            # Check both status and start type
-            $statusMatch = ($result.CurrentStatus -eq $result.ExpectedStatus)
-            $startTypeMatch = ($result.CurrentStartType -eq $result.ExpectedStartType)
-            $result.Compliant = $statusMatch -and $startTypeMatch
-            
-            $result.Details = "Service found - Status: $($result.CurrentStatus), StartType: $($result.CurrentStartType)"
-        } else {
-            $result.Details = "Service not found"
-        }
-    }
-    catch {
-        $result.Details = "Error: $($_.Exception.Message)"
-    }
-    
-    return $result
-}
-
 # Function to generate report
 function Write-Report {
     param($Results, $OutputPath)
@@ -283,6 +148,9 @@ Compliance Rate: $complianceRate%
         }
         
         $report += "Details: $($result.Details)`n"
+        if ($result.Error) {
+            $report += "Error: $($result.Error)`n"
+        }
         $report += "-" * 80 + "`n`n"
     }
     

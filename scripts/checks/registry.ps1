@@ -90,6 +90,13 @@ function Test-RegistryCompliance {
         $registryPath = $Rule.target
         $registryName = $Rule.registry_name
         
+        # Validate required fields
+        if (-not $registryPath -or -not $registryName) {
+            $result.Error = "Missing required registry path or name"
+            $result.Details = "Registry path: $registryPath, Registry name: $registryName"
+            return $result
+        }
+        
         # Try security policy first (more reliable)
         if ($PolicyContent) {
             $currentValue = Get-SecurityPolicyValue -RegistryPath $registryPath -PolicyContent $PolicyContent
@@ -109,8 +116,12 @@ function Test-RegistryCompliance {
         # Check compliance with intelligent validation
         if ($result.CurrentValue -ne $null) {
             $result.Compliant = Test-RegistryValueCompliance -CurrentValue $result.CurrentValue -ExpectedValue $result.ExpectedValue
+            if (-not $result.Compliant) {
+                $result.Details += " - Value does not match expected"
+            }
         } else {
             $result.Details = "Registry value not found"
+            $result.Error = "Registry value not accessible or does not exist"
         }
     }
     catch {

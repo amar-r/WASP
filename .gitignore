@@ -42,6 +42,7 @@ venv.bak/
 # IDE
 .vscode/
 .idea/
+.cursor/
 *.swp
 *.swo
 *~
@@ -68,7 +69,8 @@ reports/*.csv
 *.log
 *.bak
 
-# Test files
+# Test files and directories
+tests/
 test-*.ps1
 test-*.py
 *test*.ps1

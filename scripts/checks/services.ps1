@@ -21,19 +21,51 @@ function Test-ServiceCompliance {
     }
     
     try {
-        $serviceInfo = Get-ServiceStatus -ServiceName $Rule.service_name
+        # Extract service name from audit_procedure field
+        $serviceName = $null
+        if ($Rule.audit_procedure -and $Rule.audit_procedure.Trim() -ne "") {
+            # Look for service name in audit_procedure (e.g., "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Spooler:Start")
+            if ($Rule.audit_procedure -match "Services\\(\w+):") {
+                $serviceName = $matches[1]
+            }
+        }
+        
+        # Validate required fields
+        if (-not $serviceName) {
+            $result.Error = "Could not extract service name from audit_procedure"
+            $result.Details = "Service name not found in audit_procedure: $($Rule.audit_procedure)"
+            return $result
+        }
+        
+        $serviceInfo = Get-ServiceStatus -ServiceName $serviceName
         if ($serviceInfo) {
             $result.CurrentStatus = $serviceInfo.Status
             $result.CurrentStartType = $serviceInfo.StartType
             
-            # Check both status and start type
-            $statusMatch = ($result.CurrentStatus -eq $result.ExpectedStatus)
-            $startTypeMatch = ($result.CurrentStartType -eq $result.ExpectedStartType)
-            $result.Compliant = $statusMatch -and $startTypeMatch
+            # For Windows service rules, we typically check the start type
+            # The expected_value usually contains the desired start type (e.g., "Automatic", "Disabled")
+            $expectedStartType = $Rule.expected_value
+            
+            # Map expected values to actual start types
+            switch ($expectedStartType) {
+                "Automatic" { $expectedStartType = "Automatic" }
+                "Manual" { $expectedStartType = "Manual" }
+                "Disabled" { $expectedStartType = "Disabled" }
+                default { $expectedStartType = $expectedStartType }
+            }
+            
+            # Check if the current start type matches expected
+            $result.Compliant = ($result.CurrentStartType -eq $expectedStartType)
+            $result.ExpectedStartType = $expectedStartType
             
             $result.Details = "Service found - Status: $($result.CurrentStatus), StartType: $($result.CurrentStartType)"
+            
+            if (-not $result.Compliant) {
+                $result.Details += " - Start type does not match expected ($expectedStartType)"
+            }
         } else {
             $result.Details = "Service not found"
+            $result.Error = "Service '$serviceName' does not exist or is not accessible"
         }
     }
     catch {

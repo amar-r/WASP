@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
-WASP - Windows Audit & Security Profiler
+WISP - Windows Audit & Security Profiler
 CIS Excel to JSON Baseline Converter
 
-This script converts CIS Excel benchmark files to JSON format for use with the WASP scanner.
-It extracts rule IDs, titles, check types, targets, and expected values from CIS Excel files.
+This script converts CIS Excel benchmark files to JSON format for use with the WISP scanner.
+It specifically extracts code blocks (enclosed in ```) from Remediation Procedure and Audit Procedure
+columns and maps them to appropriate fields in the JSON structure.
 
 Usage:
     python cis-excel-to-json.py <input_excel_file> <output_json_file>
 
 Example:
-    python cis-excel-to-json.py "CIS_Windows_Server_2022_Benchmark_v1.0.0.xlsx" "baseline.json"
+    python cis-excel-to-json.py "CIS_Microsoft_Windows_Server_2022_Benchmark_v4.0.0.xlsx" "baseline.json"
 """
 
 import sys
@@ -20,6 +21,7 @@ import json
 import re
 from pathlib import Path
 from typing import Dict, List, Any, Optional
+from datetime import datetime
 
 if len(sys.argv) < 2:
     print("Usage: python cis-excel-to-json.py <input_excel_file> [output_json_file]")
@@ -33,6 +35,21 @@ else:
     base = os.path.splitext(os.path.basename(input_excel))[0]
     output_json = os.path.join(os.path.dirname(__file__), '..', 'baselines', f'{base}-member-server.json')
 
+def extract_expected_value_from_default(default_value: str) -> str:
+    """Extract expected value from Default Value column by removing parentheses and cleaning up."""
+    if not default_value:
+        return ""
+    
+    # Remove everything in parentheses and clean up
+    cleaned = re.sub(r'\s*\([^)]*\)', '', default_value)
+    cleaned = cleaned.strip()
+    
+    # Remove trailing period
+    if cleaned.endswith('.'):
+        cleaned = cleaned[:-1]
+    
+    return cleaned
+
 def clean_text(text: str) -> str:
     """Clean and normalize text strings."""
     if pd.isna(text) or text is None:
@@ -43,262 +60,185 @@ def clean_text(text: str) -> str:
     text = re.sub(r'\s+', ' ', text)
     return text
 
-def extract_rule_id(title: str) -> Optional[str]:
-    """Extract rule ID from title (e.g., '1.1.1' from '1.1.1 Ensure...')."""
-    if not title:
-        return None
+def extract_code_blocks(text: str) -> List[str]:
+    """Extract code blocks enclosed in ``` from text."""
+    if not text:
+        return []
     
-    # Look for pattern like "1.1.1" at the beginning
-    match = re.match(r'^(\d+\.\d+\.\d+)', title.strip())
-    if match:
-        return match.group(1)
+    # Pattern to match code blocks: ```\ncontent\n```
+    pattern = r'```\n(.*?)\n```'
+    matches = re.findall(pattern, text, re.DOTALL)
     
-    return None
+    # Clean up each code block
+    code_blocks = []
+    for match in matches:
+        code_block = match.strip()
+        if code_block:
+            code_blocks.append(code_block)
+    
+    return code_blocks
 
-def determine_check_type(title: str, check: str) -> str:
-    """Determine the check type based on title and check content."""
+def determine_check_type(title: str, audit_procedure: str, remediation_procedure: str) -> str:
+    """Determine the check type based on title and procedures."""
     title_lower = title.lower()
-    check_lower = check.lower()
+    audit_lower = audit_procedure.lower()
+    remediation_lower = remediation_procedure.lower()
     
-    # Service checks
-    if any(keyword in title_lower for keyword in ['service', 'spooler', 'telnet', 'tftp', 'snmp']):
-        return "service"
+    # User rights assignment rules (these should be secpol, not service)
+    user_rights_keywords = [
+        'adjust memory quotas', 'allow log on', 'back up files', 'change the system time',
+        'change the time zone', 'create a pagefile', 'create a token object', 'create global objects',
+        'create permanent shared objects', 'create symbolic links', 'debug programs', 'deny log on',
+        'enable computer and user accounts', 'force shutdown', 'generate security audits',
+        'impersonate a client', 'increase scheduling priority', 'load and unload device drivers',
+        'lock pages in memory', 'manage auditing and security log', 'modify an object label',
+        'modify firmware environment values', 'perform volume maintenance tasks', 'profile single process',
+        'profile system performance', 'replace a process level token', 'restore files and directories',
+        'shut down the system', 'take ownership of files'
+    ]
     
-    # Registry checks (most common)
-    if any(keyword in check_lower for keyword in ['registry', 'regedit', 'hklm', 'hkcu', 'hkey']):
+    # Check if this is a user rights assignment rule
+    if any(keyword in title_lower for keyword in user_rights_keywords):
+        return "secpol"
+    
+    # Check if audit_procedure contains registry paths (indicating registry rule)
+    if any(keyword in audit_lower for keyword in ['hklm\\', 'hkcu\\', 'hkey_local_machine', 'hkey_current_user', 'registry']):
         return "registry"
+    
+    # Actual Windows service rules (these should be service)
+    # Only classify as service if the audit_procedure specifically mentions a Windows service
+    service_keywords = [
+        'background intelligent transfer service', 'bits', 'snmp service', 'device health attestation',
+        'windows time service', 'activex installer service', 'event log service', 'internet information services',
+        'remote desktop services', 'winrm service', 'windows server update service', 'print spooler',
+        'telnet', 'tftp', 'peer-to-peer networking', 'locale services', 'service control manager',
+        'trusted platform module', 'online speech recognition'
+    ]
+    
+    # Only classify as service if both title contains service keywords AND audit_procedure contains Services\ path
+    if (any(keyword in title_lower for keyword in service_keywords) and 
+        'services\\' in audit_lower and 'currentcontrolset\\services\\' in audit_lower):
+        return "service"
     
     # Audit policy checks
     if any(keyword in title_lower for keyword in ['audit', 'auditing', 'logon', 'logoff']):
-        return "audit_policy"
+        return "auditpol"
     
-    # Security policy checks
-    if any(keyword in title_lower for keyword in ['security policy', 'secedit', 'local policy']):
-        return "security_policy"
-    
-    # Default to registry for most CIS checks
-    return "registry"
-
-def parse_registry_target(check: str) -> Optional[str]:
-    """Extract registry path from check description."""
-    # Look for registry paths
-    registry_patterns = [
-        r'HKLM\\[^,\s]+',
-        r'HKCU\\[^,\s]+',
-        r'HKEY_LOCAL_MACHINE\\[^,\s]+',
-        r'HKEY_CURRENT_USER\\[^,\s]+',
-        r'Registry Hive: HKEY_LOCAL_MACHINE\s+Registry Path: ([^,\s]+)',
-        r'Registry Hive: HKEY_CURRENT_USER\s+Registry Path: ([^,\s]+)'
-    ]
-    
-    for pattern in registry_patterns:
-        match = re.search(pattern, check, re.IGNORECASE)
-        if match:
-            path = match.group(0) if match.groups() == () else match.group(1)
-            # Normalize path format
-            path = path.replace('HKEY_LOCAL_MACHINE', 'HKLM:')
-            path = path.replace('HKEY_CURRENT_USER', 'HKCU:')
-            if not path.endswith(':'):
-                path = path.replace('HKLM\\', 'HKLM:\\')
-                path = path.replace('HKCU\\', 'HKCU:\\')
-            return path
-    
-    return None
-
-def parse_registry_name(check: str) -> Optional[str]:
-    """Extract registry value name from check description."""
-    # Look for registry value names
-    patterns = [
-        r'Value Name: ([^,\s]+)',
-        r'Registry Value: ([^,\s]+)',
-        r'Value: ([^,\s]+)',
-        r'Name: ([^,\s]+)'
-    ]
-    
-    for pattern in patterns:
-        match = re.search(pattern, check, re.IGNORECASE)
-        if match:
-            return match.group(1).strip()
-    
-    return None
-
-def parse_expected_value(check: str) -> Optional[str]:
-    """Extract expected value from check description."""
-    # Look for expected values
-    patterns = [
-        r'Expected: ([^,\s]+)',
-        r'Value: ([^,\s]+)',
-        r'Setting: ([^,\s]+)',
-        r'Configured to: ([^,\s]+)',
-        r'Set to: ([^,\s]+)',
-        r'Should be: ([^,\s]+)'
-    ]
-    
-    for pattern in patterns:
-        match = re.search(pattern, check, re.IGNORECASE)
-        if match:
-            return match.group(1).strip()
-    
-    return None
-
-def parse_service_info(check: str) -> Dict[str, str]:
-    """Extract service information from check description."""
-    service_info = {}
-    
-    # Extract service name
-    service_match = re.search(r'Service Name: ([^,\s]+)', check, re.IGNORECASE)
-    if service_match:
-        service_info['service_name'] = service_match.group(1).strip()
-    
-    # Extract expected status
-    status_patterns = [
-        r'Status: ([^,\s]+)',
-        r'Service Status: ([^,\s]+)',
-        r'Should be: ([^,\s]+)'
-    ]
-    
-    for pattern in status_patterns:
-        status_match = re.search(pattern, check, re.IGNORECASE)
-        if status_match:
-            service_info['expected_status'] = status_match.group(1).strip()
-            break
-    
-    # Extract expected start type
-    start_type_patterns = [
-        r'Start Type: ([^,\s]+)',
-        r'Startup Type: ([^,\s]+)',
-        r'Start Mode: ([^,\s]+)'
-    ]
-    
-    for pattern in start_type_patterns:
-        start_type_match = re.search(pattern, check, re.IGNORECASE)
-        if start_type_match:
-            service_info['expected_start_type'] = start_type_match.group(1).strip()
-            break
-    
-    return service_info
-
-def parse_audit_policy_info(check: str) -> Dict[str, str]:
-    """Extract audit policy information from check description."""
-    audit_info = {}
-    
-    # Extract audit category
-    category_match = re.search(r'Category: ([^,\s]+)', check, re.IGNORECASE)
-    if category_match:
-        audit_info['audit_category'] = category_match.group(1).strip()
-    
-    # Extract audit subcategory
-    subcategory_match = re.search(r'Subcategory: ([^,\s]+)', check, re.IGNORECASE)
-    if subcategory_match:
-        audit_info['audit_subcategory'] = subcategory_match.group(1).strip()
-    
-    # Extract expected setting
-    setting_patterns = [
-        r'Setting: ([^,\s]+)',
-        r'Should be: ([^,\s]+)',
-        r'Expected: ([^,\s]+)'
-    ]
-    
-    for pattern in setting_patterns:
-        setting_match = re.search(pattern, check, re.IGNORECASE)
-        if setting_match:
-            audit_info['expected_setting'] = setting_match.group(1).strip()
-            break
-    
-    return audit_info
+    # Security policy checks (default for most CIS checks)
+    return "secpol"
 
 def process_excel_file(file_path: str) -> List[Dict[str, Any]]:
     """Process CIS Excel file and extract rules."""
     print(f"Processing Excel file: {file_path}")
     
-    # Read all sheets
-    excel_file = pd.ExcelFile(file_path)
-    print(f"Found sheets: {excel_file.sheet_names}")
-    
+    # Read Level 1 and Level 2 Member Server sheets
+    sheets_to_process = ['Level 1 - Member Server', 'Level 2 - Member Server']
     all_rules = []
     
-    for sheet_name in excel_file.sheet_names:
+    for sheet_name in sheets_to_process:
         print(f"Processing sheet: {sheet_name}")
-        
-        # Skip non-rule sheets
-        if any(keyword in sheet_name.lower() for keyword in ['summary', 'overview', 'introduction', 'glossary']):
-            continue
         
         try:
             df = pd.read_excel(file_path, sheet_name=sheet_name)
-            print(f"  Sheet '{sheet_name}' has {len(df)} rows and {len(df.columns)} columns")
-            
-            # Find relevant columns
-            title_col = None
-            check_col = None
-            level_col = None
-            
-            for col in df.columns:
-                col_lower = str(col).lower()
-                if any(keyword in col_lower for keyword in ['title', 'recommendation', 'rule']):
-                    title_col = col
-                elif any(keyword in col_lower for keyword in ['check', 'audit', 'procedure']):
-                    check_col = col
-                elif any(keyword in col_lower for keyword in ['level', 'profile']):
-                    level_col = col
-            
-            if not title_col or not check_col:
-                print(f"  Skipping sheet '{sheet_name}' - missing required columns")
-                continue
-            
-            print(f"  Using columns: Title='{title_col}', Check='{check_col}'")
+            print(f"  Sheet '{sheet_name}' has {len(df)} rows")
             
             # Process each row
             for index, row in df.iterrows():
-                title = clean_text(row[title_col])
-                check = clean_text(row[check_col])
+                recommendation_id = clean_text(str(row['Recommendation #']))
+                title = clean_text(str(row['Title']))
+                description = clean_text(str(row['Description']))
+                rationale = clean_text(str(row['Rationale Statement']))
+                impact = clean_text(str(row['Impact Statement']))
+                audit_procedure = clean_text(str(row['Audit Procedure']))
+                remediation_procedure = clean_text(str(row['Remediation Procedure']))
+                default_value = clean_text(str(row['Default Value']))
                 
-                # Skip empty or header rows
-                if not title or title.lower() in ['title', 'recommendation', 'rule', 'na']:
+                # Skip empty or header rows - only process rows with actual recommendation IDs
+                if not recommendation_id or recommendation_id.lower() in ['title', 'recommendation', 'rule', 'na', 'nan'] or str(row['Recommendation #']).lower() == 'nan':
                     continue
                 
-                # Extract rule ID
-                rule_id = extract_rule_id(title)
-                if not rule_id:
-                    continue
+                # Extract section from recommendation ID
+                section = '.'.join(recommendation_id.split('.')[:2]) if '.' in recommendation_id else recommendation_id
+                
+                # Determine level from sheet name
+                level = "Level 1" if "Level 1" in sheet_name else "Level 2"
                 
                 # Determine check type
-                check_type = determine_check_type(title, check)
+                check_type = determine_check_type(title, audit_procedure, remediation_procedure)
                 
-                # Create rule object
+                # Extract code blocks for remediation and audit procedures
+                remediation_blocks = extract_code_blocks(str(row['Remediation Procedure']))
+                audit_blocks = extract_code_blocks(str(row['Audit Procedure']))
+                remediation_code = remediation_blocks[0].strip() if remediation_blocks else ''
+                audit_code = audit_blocks[0].strip() if audit_blocks else ''
+                
+                # Create base rule object
                 rule = {
-                    'id': rule_id,
+                    'id': recommendation_id,
+                    'section': section,
+                    'level': level,
                     'title': title,
+                    'description': description,
                     'check_type': check_type,
-                    'skip': False
+                    'target': 'Account Policies',  # Default, will be overridden
+                    'specific_setting': 'Account Policies',  # Default, will be overridden
+                    'expected_value': extract_expected_value_from_default(str(row['Default Value'])),
+                    'skip': False,
+                    'rationale': rationale,
+                    'impact': impact,
+                    'audit_procedure': audit_code,
+                    'remediation_procedure': remediation_code,
+                    'default_value': default_value
                 }
                 
                 # Add check-specific information
-                if check_type == "registry":
-                    target = parse_registry_target(check)
-                    registry_name = parse_registry_name(check)
-                    expected_value = parse_expected_value(check)
-                    
-                    if target:
-                        rule['target'] = target
-                    if registry_name:
-                        rule['registry_name'] = registry_name
-                    if expected_value:
-                        rule['expected_value'] = expected_value
-                
+                remediation_blocks = extract_code_blocks(remediation_procedure)
+                if remediation_blocks:
+                    # Prefer a block with 'Computer Configuration' or 'User Configuration'
+                    preferred_block = None
+                    for block in remediation_blocks:
+                        if 'Computer Configuration' in block or 'User Configuration' in block:
+                            preferred_block = block.strip()
+                            break
+                    if not preferred_block:
+                        preferred_block = remediation_blocks[0].strip()
+                    rule['target'] = preferred_block
+                    rule['specific_setting'] = preferred_block
+                elif check_type == "registry":
+                    # For registry rules, try to extract registry path from audit procedure
+                    audit_blocks = extract_code_blocks(audit_procedure)
+                    for block in audit_blocks:
+                        if any(keyword in block.upper() for keyword in ['HKEY_LOCAL_MACHINE', 'HKEY_CURRENT_USER', 'HKLM', 'HKCU']):
+                            # Normalize path format
+                            path = block
+                            path = path.replace('HKEY_LOCAL_MACHINE', 'HKLM:')
+                            path = path.replace('HKEY_CURRENT_USER', 'HKCU:')
+                            if not path.endswith(':'):
+                                path = path.replace('HKLM\\', 'HKLM:\\')
+                                path = path.replace('HKCU\\', 'HKCU:\\')
+                            rule['target'] = path
+                            rule['specific_setting'] = path
+                            break
+                    if rule['target'] == 'Account Policies':  # No registry path found
+                        rule['target'] = 'Registry'
+                        rule['specific_setting'] = 'Registry'
+                elif check_type == "auditpol":
+                    rule['target'] = 'Audit Policy'
+                    rule['specific_setting'] = 'Audit Policy'
+                elif check_type == "secpol":
+                    # Determine target based on section
+                    if section.startswith('1.'):
+                        rule['target'] = 'Account Policies'
+                        rule['specific_setting'] = 'Account Policies'
+                    elif section.startswith('2.'):
+                        rule['target'] = 'Local Policies'
+                        rule['specific_setting'] = 'Local Policies'
+                    else:
+                        rule['target'] = 'Security Settings'
+                        rule['specific_setting'] = 'Security Settings'
                 elif check_type == "service":
-                    service_info = parse_service_info(check)
-                    rule.update(service_info)
-                
-                elif check_type == "audit_policy":
-                    audit_info = parse_audit_policy_info(check)
-                    rule.update(audit_info)
-                
-                # Add level information if available
-                if level_col and level_col in row:
-                    level = clean_text(row[level_col])
-                    if level:
-                        rule['level'] = level
+                    rule['target'] = 'Services'
+                    rule['specific_setting'] = 'Services'
                 
                 all_rules.append(rule)
                 
@@ -311,16 +251,19 @@ def process_excel_file(file_path: str) -> List[Dict[str, Any]]:
 
 def create_baseline(rules: List[Dict[str, Any]], file_path: str) -> Dict[str, Any]:
     """Create baseline object from rules."""
-    # Extract filename for baseline name
-    file_name = Path(file_path).stem
-    baseline_name = f"CIS {file_name.replace('_', ' ').replace('-', ' ')}"
+    # Count rules by level
+    level_1_rules = len([r for r in rules if r['level'] == 'Level 1'])
+    level_2_rules = len([r for r in rules if r['level'] == 'Level 2'])
     
     baseline = {
-        'name': baseline_name,
-        'version': '1.0.0',
-        'description': f'CIS benchmark converted from {file_name}',
-        'source_file': file_path,
-        'total_rules': len(rules),
+        'metadata': {
+            'source_file': file_path,
+            'sheets_processed': ['Level 1 - Member Server', 'Level 2 - Member Server'],
+            'total_rules': len(rules),
+            'level_1_rules': level_1_rules,
+            'level_2_rules': level_2_rules,
+            'generated_at': datetime.now().isoformat()
+        },
         'rules': rules
     }
     
@@ -330,7 +273,7 @@ def main():
     """Main function."""
     if len(sys.argv) != 3:
         print("Usage: python cis-excel-to-json.py <input_excel_file> <output_json_file>")
-        print("Example: python cis-excel-to-json.py 'CIS_Windows_Server_2022_Benchmark.xlsx' 'baseline.json'")
+        print("Example: python cis-excel-to-json.py 'CIS_Microsoft_Windows_Server_2022_Benchmark_v4.0.0.xlsx' 'baseline.json'")
         sys.exit(1)
     
     input_file = sys.argv[1]
@@ -348,10 +291,10 @@ def main():
         if not rules:
             print("Error: No rules extracted from Excel file")
             sys.exit(1)
-        
+
         # Create baseline
         baseline = create_baseline(rules, input_file)
-        
+
         # Write JSON file
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(baseline, f, indent=2, ensure_ascii=False)

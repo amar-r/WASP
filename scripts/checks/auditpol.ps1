@@ -22,69 +22,64 @@ function Test-AuditPolicyCompliance {
     }
     
     try {
-        if ($AuditPolicyOutput) {
-            # Convert string array to lines for processing
-            $lines = if ($AuditPolicyOutput -is [string]) {
-                $AuditPolicyOutput -split "`n"
+        # Use the audit_procedure field if available, otherwise extract from audit_command
+        $auditCommand = ""
+        if ($Rule.audit_procedure -and $Rule.audit_procedure.Trim() -ne "") {
+            # Extract command from audit_procedure if it contains code blocks
+            if ($Rule.audit_procedure -match "```\s*\n(.*?)\n\s*```") {
+                $auditCommand = $matches[1].Trim()
             } else {
-                $AuditPolicyOutput
+                # Use the audit_procedure as-is if no code blocks
+                $auditCommand = $Rule.audit_procedure.Trim()
+            }
+        } elseif ($Rule.audit_command) {
+            $auditCommand = $Rule.audit_command
+        }
+        
+        if ($auditCommand -eq "") {
+            $result.Details = "Could not extract audit command from rule"
+            $result.Error = "No audit procedure or command found in rule"
+            return $result
+        }
+        
+        # Execute the specific auditpol command
+        try {
+            $output = Invoke-Expression $auditCommand 2>&1
+            $outputLines = if ($output -is [string]) {
+                $output -split "`n"
+            } else {
+                $output
             }
             
-            # Extract subcategory name from the rule title
-            # Handle different title formats:
-            # "(L1) Ensure 'Audit Credential Validation' is set to 'Success and Failure'"
-            # "(L1) Ensure 'Audit Security Group Management' is set to include 'Success'"
-            $subcategoryName = ""
-            if ($Rule.title -match "Ensure 'Audit (.+?)' is set to") {
-                $subcategoryName = $matches[1]
-            } elseif ($Rule.title -match "Ensure 'Audit (.+?)' is set to include") {
-                $subcategoryName = $matches[1]
-            }
-            
-            if ($subcategoryName -eq "") {
-                $result.Details = "Could not extract subcategory name from rule title: $($Rule.title)"
-                return $result
-            }
-            
-            # Parse the audit policy output to find the subcategory
-            $currentCategory = ""
-            $found = $false
-            
-            foreach ($line in $lines) {
+            # Parse the output to find the setting value
+            $currentSetting = $null
+            foreach ($line in $outputLines) {
                 $line = $line.Trim()
-                
-                # Check if this is a category header (no leading spaces)
-                if ($line -match "^([A-Za-z/\s]+)$" -and $line -notmatch "^\s") {
-                    $currentCategory = $line
-                }
-                # Check if this is a subcategory line (has leading spaces and contains the subcategory name)
-                elseif ($line -match "^\s+(.+?)\s+(Success|Failure|Success and Failure|No Auditing)\s*$") {
-                    $subcategory = $matches[1].Trim()
-                    $setting = $matches[2]
-                    
-                    # Check if this subcategory matches what we're looking for
-                    if ($subcategory -eq $subcategoryName) {
-                        $result.CurrentSetting = $setting
-                        
-                        # Compare with expected value
-                        if ($setting -eq $result.ExpectedSetting) {
-                            $result.Compliant = $true
-                            $result.Details = "Audit policy setting matches expected value"
-                        } else {
-                            $result.Details = "Audit policy setting does not match expected value"
-                        }
-                        $found = $true
-                        break
-                    }
+                # Look for lines that contain the setting value
+                if ($line -match "(Success|Failure|Success and Failure|No Auditing)") {
+                    $currentSetting = $matches[1]
+                    break
                 }
             }
             
-            if (-not $found) {
-                $result.Compliant = $false
-                $result.Details = "Audit policy subcategory '$subcategoryName' not found in output"
+            if ($currentSetting -ne $null) {
+                $result.CurrentSetting = $currentSetting
+                
+                # Compare with expected value
+                if ($currentSetting -eq $result.ExpectedSetting) {
+                    $result.Compliant = $true
+                    $result.Details = "Audit policy setting matches expected value"
+                } else {
+                    $result.Details = "Audit policy setting does not match expected value"
+                }
+            } else {
+                $result.Details = "Could not parse setting value from auditpol output"
+                $result.Error = "No valid audit setting found in command output"
             }
-        } else {
-            $result.Details = "Failed to retrieve audit policy settings"
+        }
+        catch {
+            $result.Error = $_.Exception.Message
+            $result.Details = "Error executing audit command: $($result.Error)"
         }
     }
     catch {
