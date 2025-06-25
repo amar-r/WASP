@@ -35,6 +35,31 @@ else:
     base = os.path.splitext(os.path.basename(input_excel))[0]
     output_json = os.path.join(os.path.dirname(__file__), '..', 'baselines', f'{base}-member-server.json')
 
+def extract_expected_value_from_remediation(remediation_procedure: str) -> str:
+    """Extract expected value from Remediation Procedure text before the code block."""
+    if not remediation_procedure:
+        return ""
+    
+    # Pattern: "set the following UI path to `EXPECTED_VALUE`:"
+    pattern = r"set the following UI path to `([^`]+)`:"
+    match = re.search(pattern, remediation_procedure)
+    if match:
+        return match.group(1).strip()
+    
+    # Alternative pattern: "set to `EXPECTED_VALUE`"
+    pattern2 = r"set to `([^`]+)`"
+    match2 = re.search(pattern2, remediation_procedure)
+    if match2:
+        return match2.group(1).strip()
+    
+    # Alternative pattern: "is set to `EXPECTED_VALUE`"
+    pattern3 = r"is set to `([^`]+)`"
+    match3 = re.search(pattern3, remediation_procedure)
+    if match3:
+        return match3.group(1).strip()
+    
+    return ""
+
 def extract_expected_value_from_default(default_value: str) -> str:
     """Extract expected value from Default Value column by removing parentheses and cleaning up."""
     if not default_value:
@@ -172,73 +197,26 @@ def process_excel_file(file_path: str) -> List[Dict[str, Any]]:
                 remediation_code = remediation_blocks[0].strip() if remediation_blocks else ''
                 audit_code = audit_blocks[0].strip() if audit_blocks else ''
                 
-                # Create base rule object
+                # Extract expected value from remediation procedure first, fall back to default value
+                remediation_expected = extract_expected_value_from_remediation(remediation_procedure)
+                default_expected = extract_expected_value_from_default(default_value)
+                expected_value = remediation_expected if remediation_expected else default_expected
+                
+                # Create base rule object with only necessary fields
                 rule = {
                     'id': recommendation_id,
-                    'section': section,
-                    'level': level,
                     'title': title,
-                    'description': description,
+                    'level': level,
                     'check_type': check_type,
-                    'target': 'Account Policies',  # Default, will be overridden
-                    'specific_setting': 'Account Policies',  # Default, will be overridden
-                    'expected_value': extract_expected_value_from_default(str(row['Default Value'])),
-                    'skip': False,
-                    'rationale': rationale,
-                    'impact': impact,
-                    'audit_procedure': audit_code,
+                    'expected_value': expected_value,
                     'remediation_procedure': remediation_code,
-                    'default_value': default_value
+                    'default_value': default_value,
+                    'skip': False
                 }
                 
-                # Add check-specific information
-                remediation_blocks = extract_code_blocks(remediation_procedure)
-                if remediation_blocks:
-                    # Prefer a block with 'Computer Configuration' or 'User Configuration'
-                    preferred_block = None
-                    for block in remediation_blocks:
-                        if 'Computer Configuration' in block or 'User Configuration' in block:
-                            preferred_block = block.strip()
-                            break
-                    if not preferred_block:
-                        preferred_block = remediation_blocks[0].strip()
-                    rule['target'] = preferred_block
-                    rule['specific_setting'] = preferred_block
-                elif check_type == "registry":
-                    # For registry rules, try to extract registry path from audit procedure
-                    audit_blocks = extract_code_blocks(audit_procedure)
-                    for block in audit_blocks:
-                        if any(keyword in block.upper() for keyword in ['HKEY_LOCAL_MACHINE', 'HKEY_CURRENT_USER', 'HKLM', 'HKCU']):
-                            # Normalize path format
-                            path = block
-                            path = path.replace('HKEY_LOCAL_MACHINE', 'HKLM:')
-                            path = path.replace('HKEY_CURRENT_USER', 'HKCU:')
-                            if not path.endswith(':'):
-                                path = path.replace('HKLM\\', 'HKLM:\\')
-                                path = path.replace('HKCU\\', 'HKCU:\\')
-                            rule['target'] = path
-                            rule['specific_setting'] = path
-                            break
-                    if rule['target'] == 'Account Policies':  # No registry path found
-                        rule['target'] = 'Registry'
-                        rule['specific_setting'] = 'Registry'
-                elif check_type == "auditpol":
-                    rule['target'] = 'Audit Policy'
-                    rule['specific_setting'] = 'Audit Policy'
-                elif check_type == "secpol":
-                    # Determine target based on section
-                    if section.startswith('1.'):
-                        rule['target'] = 'Account Policies'
-                        rule['specific_setting'] = 'Account Policies'
-                    elif section.startswith('2.'):
-                        rule['target'] = 'Local Policies'
-                        rule['specific_setting'] = 'Local Policies'
-                    else:
-                        rule['target'] = 'Security Settings'
-                        rule['specific_setting'] = 'Security Settings'
-                elif check_type == "service":
-                    rule['target'] = 'Services'
-                    rule['specific_setting'] = 'Services'
+                # Add audit_procedure only for registry rules
+                if check_type == "registry":
+                    rule['audit_procedure'] = audit_code
                 
                 all_rules.append(rule)
                 
@@ -257,9 +235,9 @@ def create_baseline(rules: List[Dict[str, Any]], file_path: str) -> Dict[str, An
     
     baseline = {
         'metadata': {
-        'source_file': file_path,
+            'source_file': file_path,
             'sheets_processed': ['Level 1 - Member Server', 'Level 2 - Member Server'],
-        'total_rules': len(rules),
+            'total_rules': len(rules),
             'level_1_rules': level_1_rules,
             'level_2_rules': level_2_rules,
             'generated_at': datetime.now().isoformat()
