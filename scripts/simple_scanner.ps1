@@ -39,7 +39,7 @@ $osName = "$($osInfo.Caption) $($osInfo.OSArchitecture)"
 
 # Export security policy for secpol checks
 Write-Host "Exporting security policy..." -ForegroundColor Yellow
-$secpolFile = "reports\secpol_export.inf"
+$secpolFile = ".\reports\secpol_export.inf"
 try {
     secedit /export /cfg $secpolFile | Out-Null
     $secpolContent = Get-Content $secpolFile -Raw
