@@ -9,6 +9,7 @@ A PowerShell-based security scanner for Windows Server systems that validates co
 - **Excel Baseline Support**: Uses the official CIS Excel benchmark as the source of truth
 - **Comprehensive Reporting**: Generates compliance reports
 - **No Python/JSON Required**: Pure PowerShell workflow
+- **Built-in Help**: Script includes comprehensive PowerShell help documentation
 
 ## Requirements
 
@@ -27,7 +28,7 @@ Install-Module -Name ImportExcel -Scope CurrentUser
 
 1. **Clone the repository**:
    ```powershell
-   git clone https://github.com/yourusername/wasp.git
+   git clone https://github.com/amar-r/wasp.git
    cd wasp
    ```
 
@@ -56,6 +57,18 @@ Or specify a custom Excel path and output location:
 ./scripts/Start-WaspScan.ps1 -ExcelPath ".\baselines\CIS_Microsoft_Windows_Server_2022_Benchmark_v4.0.0.xlsx" -OutputPath ".\reports\my-wasp-report.txt"
 ```
 
+### Get Help
+
+The script includes built-in PowerShell help:
+
+```powershell
+# Get detailed help
+Get-Help ./scripts/Start-WaspScan.ps1
+
+# Get parameter information
+Get-Help ./scripts/Start-WaspScan.ps1 -Parameter ExcelPath
+```
+
 ### Command Line Parameters
 
 | Parameter    | Type   | Default                                                    | Description                        |
@@ -68,10 +81,10 @@ Or specify a custom Excel path and output location:
 ```
 WASP/
 ├── baselines/                    # Place CIS Excel file here
-│   └── CIS_Microsoft_Windows_Server_2022_Benchmark_v4.0.0.xlsx
+│   └── [CIS_Microsoft_Windows_Server_2022_Benchmark_v4.0.0.xlsx]  # Add your Excel file here
 ├── reports/                      # Generated scan reports
 ├── scripts/                      # PowerShell scripts
-│   └── Start-WaspScan.ps1        # Main scanner script
+│   └── Start-WaspScan.ps1        # Main scanner script (with built-in help)
 ├── tests/                        # Archived/legacy scripts and tools
 └── README.md                     # This file
 ```
@@ -84,9 +97,12 @@ Passed Checks: 342
 Failed Checks: 66
 Percent Passed: 83.82%
 
-id   : 1.1.1
-title: Ensure 'Enforce password history' is set to '24 or more password(s)'
-pass : True
+id            : 1.1.1
+title         : Ensure 'Enforce password history' is set to '24 or more password(s)'
+pass          : True
+currentValue  : 24
+expectedValue : 24 or more password(s)
+type          : secPol
 ...
 ```
 
@@ -113,10 +129,16 @@ pass : True
 3. **"Excel file not found"**:
    - Verify Excel file path
    - Check file permissions
+   - Ensure the Excel file is in the baselines/ directory
 
 4. **"Registry value not found"**:
    - Verify registry path exists
    - Check if running as Administrator
+
+5. **"ImportExcel module not found"**:
+   ```powershell
+   Install-Module -Name ImportExcel -Scope CurrentUser
+   ```
 
 ## Contributing
 
