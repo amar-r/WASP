@@ -1,15 +1,33 @@
 # WASP - Windows Audit & Security Profiler
 
+**⚠️ WORK IN PROGRESS ⚠️**
+
 A PowerShell-based security scanner for Windows Server systems that validates compliance against CIS (Center for Internet Security) benchmarks using the official CIS Excel benchmark file.
+
+> **Note**: This project is currently in development. The current version supports registry and audit policy checks. **Security Policy (secpol) configuration checking functionality is planned but not yet implemented.**
 
 ## Features
 
 - **CIS Compliance Scanning**: Validates Windows Server systems against CIS benchmarks
-- **Multiple Check Types**: Registry, Security Policy, and Audit Policy
+- **Multiple Check Types**: Registry, Security Policy (planned), and Audit Policy
 - **Excel Baseline Support**: Uses the official CIS Excel benchmark as the source of truth
 - **Comprehensive Reporting**: Generates compliance reports
-- **No Python/JSON Required**: Pure PowerShell workflow
 - **Built-in Help**: Script includes comprehensive PowerShell help documentation
+
+## Current Status
+
+### Implemented
+- Registry-based compliance checks
+- Audit Policy (auditpol) compliance checks
+- Excel baseline parsing and validation
+- Comprehensive reporting with current vs expected values
+- PowerShell help documentation
+
+### In Progress / Planned
+- **Security Policy (secpol) configuration checking** - Not yet implemented
+- Enhanced error handling for secpol commands
+- Integration with secedit.exe for security policy validation
+- Additional check types as needed
 
 ## Requirements
 
